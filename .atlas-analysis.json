@@ -91,11 +91,17 @@
     "delete_entry(date)",
     "classify_emotion(text)",
     "perform_dictation_cmd(audioFilePath)",
+    "upload_image_file(fileDataBase64, originalFileName)",
     "generate_suggestion_cmd(entryTitle, entryContent)",
-    "chat_assistant_cmd(conversationHistory)",
+    "chat_with_moodjourney_cmd(userMessage, sessionIdOption)",
+    "load_chat_sessions()",
+    "load_messages_for_session_cmd(sessionId)",
+    "delete_chat_session_cmd(sessionId)",
     "is_pin_set_cmd()",
     "check_password_attempt_cmd(passwordStr)",
     "set_new_password_cmd(passwordStr)",
-    "upload_image_file(fileDataBase64, originalFileName)"
+    "set_locked_explicit_cmd(locked)",
+    "is_locked_cmd()",
+    "delete_pin_cmd()"
   ]
 }
