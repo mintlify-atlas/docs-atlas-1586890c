@@ -1,0 +1,292 @@
+---
+title: AI suggestions and chat
+description: Generate contextual suggestions for journal entries and chat with the AI assistant
+---
+
+MoodJourney provides AI-powered features through the Gemini API, including personalized suggestions for journal entries and an interactive chat assistant.
+
+## generate_suggestion_cmd
+
+Generates three actionable suggestions based on a journal entry's title and content. The suggestions are tailored to the emotional tone of the entry.
+
+### Function signature
+
+```rust
+async fn generate_suggestion_cmd(
+    entry_title: Option<String>,
+    entry_content: Option<String>,
+) -> Result<String, String>
+```
+
+### Parameters
+
+<ParamField path="entryTitle" type="string | null">
+  The title of the journal entry. Can be `null` if only content is provided.
+</ParamField>
+
+<ParamField path="entryContent" type="string | null">
+  The main content of the journal entry. Can be `null` if only title is provided.
+  
+  **Note**: Content is automatically truncated to 700 characters before being sent to the API.
+</ParamField>
+
+### Returns
+
+<ResponseField name="suggestions" type="string">
+  A formatted string containing three suggestions, each on its own line starting with a dash (e.g., `- Suggestion 1\n- Suggestion 2\n- Suggestion 3`)
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if generation fails. Common errors:
+  - Both title and content are empty
+  - API key not configured
+  - Network request failed
+  - API returned empty response
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+const journalContent = "Today was a bit overwhelming. I had a lot of meetings and didn't get as much done on my main project as I hoped. Feeling a little drained now.";
+
+try {
+  const suggestions = await invoke("generate_suggestion_cmd", {
+    entryTitle: "Journal Entry",
+    entryContent: journalContent
+  });
+  
+  console.log("AI Suggestions:", suggestions);
+  // Output:
+  // - Perhaps take 15 minutes for a quick walk or some stretching to clear your head and recharge.
+  // - Before tomorrow, could you identify one or two key tasks for your main project to focus on first?
+  // - Remember to acknowledge what you *did* manage today, even with many meetings.
+} catch (error) {
+  console.error("Failed to generate suggestions:", error);
+}
+```
+
+### Typical workflow
+
+From `App.jsx:434-466`, suggestions are generated after emotion classification:
+
+```javascript
+let generatedSuggestion = "Suggestion not available.";
+
+try {
+  generatedSuggestion = await invoke("generate_suggestion_cmd", { 
+    entryTitle: "Journal Entry", 
+    entryContent: currentEntryText 
+  });
+} catch (suggestionError) {
+  console.warn("AI suggestion failed");
+}
+
+// Embed in entry content
+const contentToSave = `${currentEntryText}\n\n🧠 Emotion: ${classifiedEmotion}\n\n💡 Suggestion: ${generatedSuggestion}`;
+```
+
+### Implementation details
+
+- **API**: Google Gemini 2.0 Flash (`gemini-2.0-flash:generateContent`)
+- **Model parameters**:
+  - Temperature: `0.7`
+  - Top P: `0.9`
+  - Top K: `40`
+  - Max tokens: `150`
+- **Content limit**: First 700 characters of content (see `main.rs:282-290`)
+- **Prompt engineering**: Includes examples for different emotions (joy, sadness, anger) to guide the model
+
+### Prompt structure
+
+The command builds a detailed prompt with examples (see `main.rs:240-297`):
+
+```rust
+let initial_prompt_block = r#"
+You are a helpful journaling assistant called "MoodJourney".
+Your goal is to provide three concise, actionable, and encouraging suggestions
+based on the user's journal entry.
+
+Here's an example of how to respond to an entry corresponding to the emotion "sadness":
+--- Example Start ---
+Journal Entry: Today was a bit overwhelming...
+Suggestions:
+- Perhaps take 15 minutes for a quick walk...
+- Before tomorrow, could you identify one or two key tasks...
+- Remember to acknowledge what you *did* manage today...
+--- Example End ---
+"#;
+```
+
+### Error handling
+
+<Warning>
+**API key required**: The Gemini API key must be configured in `src-tauri/src/config.rs`. If not set, the function returns:
+
+```
+API_KEY_NOT_CONFIGURED: The Gemini API key is not set in src-tauri/src/config.rs
+```
+</Warning>
+
+```javascript
+try {
+  const suggestions = await invoke("generate_suggestion_cmd", {
+    entryTitle: "",
+    entryContent: ""
+  });
+} catch (error) {
+  // Error: "Cannot generate suggestion: Journal entry title and content are both empty."
+}
+```
+
+---
+
+## chat_assistant_cmd
+
+<Note>
+This command is referenced in `main.rs` but the actual command name used in the code is `chat_with_moodjourney_cmd` (see `main.rs:339-433`). The documentation here uses the canonical name from the source.
+</Note>
+
+Engages in a conversational chat with the MoodJourney AI assistant. The assistant has access to all past journal entries and maintains conversation history across multiple turns.
+
+### Function signature
+
+```rust
+async fn chat_with_moodjourney_cmd(
+    app_db_path: State<'_, PathBuf>,
+    user_message: String,
+    session_id_option: Option<String>,
+) -> Result<ChatCompletionResponse, String>
+```
+
+### Parameters
+
+<ParamField path="userMessage" type="string" required>
+  The user's message to send to the assistant
+</ParamField>
+
+<ParamField path="sessionIdOption" type="string | null">
+  The chat session ID. Pass `null` to start a new conversation, or provide an existing session ID to continue a conversation.
+</ParamField>
+
+### Returns
+
+<ResponseField name="response" type="ChatCompletionResponse">
+  <ResponseField name="assistant_response" type="string">
+    The AI assistant's response to the user's message
+  </ResponseField>
+  
+  <ResponseField name="session_id" type="string">
+    The session ID for this conversation (use this for subsequent messages)
+  </ResponseField>
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+let currentSessionId = null;
+
+// Start a new conversation
+try {
+  const response = await invoke("chat_with_moodjourney_cmd", {
+    userMessage: "How have I been feeling this week?",
+    sessionIdOption: currentSessionId
+  });
+  
+  console.log("Assistant:", response.assistant_response);
+  currentSessionId = response.session_id; // Save for next message
+} catch (error) {
+  console.error("Chat failed:", error);
+}
+
+// Continue the conversation
+const followUp = await invoke("chat_with_moodjourney_cmd", {
+  userMessage: "What can I do to feel better?",
+  sessionIdOption: currentSessionId // Continue same session
+});
+
+console.log("Assistant:", followUp.assistant_response);
+```
+
+### Implementation details
+
+- **API**: Google Gemini 2.0 Flash
+- **Model parameters**:
+  - Temperature: `0.75`
+  - Top P: `0.9`
+  - Top K: `40`
+  - Max tokens: `600`
+- **Context**: The first message in a session includes all past journal entries as context
+- **Session management**: Sessions are stored in the database with auto-generated titles
+- **Message history**: Full conversation history is sent with each request for context
+
+### Context injection
+
+On the first message in a session, the assistant receives (see `main.rs:367-399`):
+
+```javascript
+// System prompt
+You are a helpful journaling assistant called "MoodJourney". 
+The current date is {date}.
+You have access to the user's past journal entries for context...
+
+// All past journal entries
+Date: 2025-04-20
+Content: {entry content without emotion/suggestion metadata}
+---
+Date: 2025-04-19
+Content: ...
+
+// User's message
+User: How have I been feeling this week?
+```
+
+### Session title generation
+
+The session title is automatically set to the first 50 characters of the user's first message:
+
+```rust
+// From db.rs:216-229
+if current_title.is_none() || current_title.as_deref() == Some("") {
+    let new_title: String = content.chars().take(50).collect();
+    let final_title = if content.chars().count() > 50 { 
+        format!("{}...", new_title) 
+    } else { 
+        new_title 
+    };
+}
+```
+
+### Related commands
+
+The chat feature uses several database commands (not directly invoked from frontend in typical flow):
+
+- `load_chat_sessions` - Get all chat sessions
+- `load_messages_for_session_cmd` - Get messages for a specific session
+- `delete_chat_session_cmd` - Delete a chat session and its messages
+
+### Error handling
+
+```javascript
+try {
+  const response = await invoke("chat_with_moodjourney_cmd", {
+    userMessage: "",
+    sessionIdOption: null
+  });
+} catch (error) {
+  // Error handling for empty messages, API failures, etc.
+}
+```
+
+<Warning>
+Like `generate_suggestion_cmd`, this requires the Gemini API key to be configured in `src-tauri/src/config.rs`.
+</Warning>
+
+### Privacy note
+
+<Note>
+All journal entries are sent to the Gemini API on the first message of each chat session to provide context. Subsequent messages in the same session only send the conversation history.
+</Note>

@@ -1,0 +1,178 @@
+---
+title: Contributing
+description: Guidelines for contributing to the MoodJourney project
+---
+
+Thank you for your interest in contributing to MoodJourney! This guide will help you get started with contributing to the project.
+
+## Getting started
+
+Before contributing, make sure you have:
+
+1. Read the [installation guide](/installation) and successfully set up the development environment
+2. Familiarized yourself with the [technical architecture](/technical/architecture)
+3. Run the application locally using `npm run tauri dev`
+
+## Development workflow
+
+<Steps>
+  <Step title="Fork and clone the repository">
+    Fork the repository on GitHub and clone your fork:
+    
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/MoodJourney.git
+    cd MoodJourney
+    ```
+  </Step>
+  
+  <Step title="Create a feature branch">
+    Create a new branch for your changes:
+    
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+    
+    Use descriptive branch names:
+    - `feature/` for new features
+    - `fix/` for bug fixes
+    - `docs/` for documentation updates
+    - `refactor/` for code refactoring
+  </Step>
+  
+  <Step title="Make your changes">
+    Implement your changes following the code style and best practices outlined below.
+  </Step>
+  
+  <Step title="Test your changes">
+    Run the test suite to ensure your changes don't break existing functionality:
+    
+    ```bash
+    cd src-tauri
+    cargo test
+    ```
+    
+    Also test the application manually:
+    
+    ```bash
+    npm run tauri dev
+    ```
+  </Step>
+  
+  <Step title="Commit your changes">
+    Write clear, concise commit messages:
+    
+    ```bash
+    git add .
+    git commit -m "Add feature: description of your changes"
+    ```
+  </Step>
+  
+  <Step title="Push and create a pull request">
+    Push your changes to your fork:
+    
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+    
+    Then create a pull request on GitHub.
+  </Step>
+</Steps>
+
+## Code style guidelines
+
+### Rust backend
+
+Follow Rust best practices and conventions:
+
+- Use `cargo fmt` to format code before committing
+- Run `cargo clippy` to catch common mistakes
+- Write descriptive function and variable names
+- Add documentation comments for public functions
+- Include unit tests for new functionality
+
+<CodeGroup>
+```bash Format code
+cargo fmt
+```
+
+```bash Run linter
+cargo clippy
+```
+
+```bash Check code
+cargo check
+```
+</CodeGroup>
+
+### React frontend
+
+Follow React and JavaScript best practices:
+
+- Use functional components with hooks
+- Maintain consistent formatting (the project uses Prettier/ESLint conventions)
+- Use Material-UI components consistently with the existing design
+- Keep components modular and reusable
+
+## Testing requirements
+
+All contributions should include appropriate tests:
+
+- **New features**: Add unit tests covering the new functionality
+- **Bug fixes**: Add regression tests to prevent the bug from reoccurring
+- **Refactoring**: Ensure all existing tests still pass
+
+See the [testing guide](/development/testing) for more information on running and writing tests.
+
+## Pull request guidelines
+
+When submitting a pull request:
+
+1. **Provide a clear title and description** - Explain what changes you made and why
+2. **Reference related issues** - Link to any related GitHub issues
+3. **Keep changes focused** - Each PR should address a single concern
+4. **Ensure tests pass** - All tests must pass before merging
+5. **Update documentation** - Update relevant documentation if needed
+
+<Info>
+Your pull request will be reviewed by the project maintainers. Be responsive to feedback and be prepared to make changes if requested.
+</Info>
+
+## Reporting issues
+
+If you find a bug or have a feature request:
+
+1. Check if the issue already exists in the [GitHub issues](https://github.com/MAJIEF-CS180/MoodJourney/issues)
+2. If not, create a new issue with:
+   - A clear, descriptive title
+   - Detailed description of the problem or feature
+   - Steps to reproduce (for bugs)
+   - Expected vs actual behavior (for bugs)
+   - Your environment (OS, versions, etc.)
+
+## Areas for contribution
+
+Some areas where contributions are especially welcome:
+
+- **Bug fixes** - Help identify and fix issues
+- **Feature enhancements** - Improve existing features
+- **Documentation** - Improve guides and API documentation
+- **Testing** - Increase test coverage
+- **Performance** - Optimize application performance
+- **Accessibility** - Improve accessibility features
+- **UI/UX improvements** - Enhance user interface and experience
+
+## Project team
+
+MoodJourney was developed by Michael Tin, Augustine Ayoub, James Krejci, Isaias Bernal, Eddie Nguyen, and Falak Tulsi for CS180 (Software Engineering) at the University of California, Riverside.
+
+## Questions?
+
+If you have questions about contributing, feel free to:
+
+- Open a discussion on GitHub
+- Comment on relevant issues
+- Reach out to the project maintainers
+
+<Note>
+By contributing to MoodJourney, you agree that your contributions will be licensed under the same license as the project.
+</Note>

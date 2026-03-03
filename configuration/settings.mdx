@@ -1,0 +1,83 @@
+---
+title: App settings
+description: Configure MoodJourney settings and preferences
+---
+
+MoodJourney provides several customizable settings to personalize your journaling experience. Access settings by clicking the gear icon in the sidebar drawer.
+
+## Display name
+
+Customize the greeting shown on the main page with your preferred name.
+
+<Steps>
+  <Step title="Open settings">
+    Click the settings icon (gear) in the sidebar drawer to open the settings page.
+  </Step>
+  
+  <Step title="Edit display name">
+    In the "Display Name" field, enter your preferred name. This name appears in the greeting message (e.g., "Good Morning, Michael").
+  </Step>
+  
+  <Step title="Save changes">
+    Click the "Save" button next to the name field. The button is only enabled when you've made changes.
+  </Step>
+</Steps>
+
+<Note>
+  Your display name is stored locally in your browser's localStorage and persists across sessions.
+</Note>
+
+## Application PIN
+
+Secure your journal entries with a 4-digit PIN that locks the application when it starts.
+
+### Creating a PIN
+
+<Steps>
+  <Step title="Open PIN menu">
+    In the settings page, click the "Create PIN" button under "Application PIN".
+  </Step>
+  
+  <Step title="Enter 4-digit PIN">
+    Enter a 4-digit PIN in the modal dialog. Choose something memorable but secure.
+  </Step>
+  
+  <Step title="Confirm creation">
+    Click "Submit" to create your PIN. The application will immediately lock and require the PIN on next startup.
+  </Step>
+</Steps>
+
+### Managing your PIN
+
+Once a PIN is set, you can:
+
+- **Change PIN**: Select "Change PIN" from the PIN menu to set a new 4-digit code
+- **Delete PIN**: Select "Delete PIN" from the PIN menu to remove PIN protection entirely
+
+<Warning>
+  If you forget your PIN, there is no recovery mechanism. You may need to delete the application data to regain access, which will remove all journal entries.
+</Warning>
+
+### PIN behavior
+
+When a PIN is active:
+- The application locks automatically when started
+- You must enter the correct PIN to access your journal
+- The lock status persists until you close the application
+- Invalid PIN attempts show an error message
+
+<Info>
+  PIN data is stored securely using Rust's backend encryption mechanisms in the Tauri configuration directory.
+</Info>
+
+## Privacy and data storage
+
+All settings are stored locally:
+
+- **Display name**: Stored in browser localStorage (`appConfiguredUserName`)
+- **Theme preference**: Stored in browser localStorage (`appThemeMode`)
+- **PIN data**: Stored in encrypted Tauri app data directory
+
+<Note>
+  MoodJourney never sends your settings or journal data to external servers. All data remains on your device.
+</Note>

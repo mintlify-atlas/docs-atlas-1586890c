@@ -1,0 +1,292 @@
+---
+title: Audio dictation features
+description: Convert speech to text using voice dictation and audio file transcription
+---
+
+MoodJourney offers two powerful ways to create journal entries using your voice: real-time speech dictation and audio file transcription. Both features help you capture thoughts quickly and naturally.
+
+## Voice dictation methods
+
+<Tabs>
+  <Tab title="Real-time dictation">
+    Speak directly into your microphone and see your words transcribed live as you talk.
+  </Tab>
+  
+  <Tab title="Audio file upload">
+    Upload pre-recorded audio files (WAV, MP3, M4A, FLAC, OGG) to have them transcribed into text.
+  </Tab>
+</Tabs>
+
+## Real-time speech dictation
+
+### Using live dictation
+
+<Steps>
+  <Step title="Grant microphone access">
+    The first time you use dictation, your browser will ask for microphone permissions. Click "Allow" to continue.
+  </Step>
+  
+  <Step title="Start dictation">
+    Click the microphone icon in the journal entry form. The icon will turn red to indicate active listening.
+  </Step>
+  
+  <Step title="Speak naturally">
+    Talk as you normally would. Your words will appear in the text field in real-time.
+  </Step>
+  
+  <Step title="Stop dictation">
+    Click the microphone icon again (now red) to stop listening. A success message will confirm dictation has finished.
+  </Step>
+</Steps>
+
+### How it works
+
+Real-time dictation uses the **Web Speech API**, a browser-based speech recognition service:
+
+```javascript
+// From App.jsx:307-333
+const recognition = new SpeechRecognition();
+recognition.lang = 'en-US';
+recognition.interimResults = true;  // Show words as you speak
+recognition.continuous = true;      // Keep listening until stopped
+
+let finalTranscriptAggregator = entryText;
+
+recognition.onresult = (event) => {
+    let interimTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+            const transcriptChunk = event.results[i][0].transcript;
+            finalTranscriptAggregator = finalTranscriptAggregator.trim() 
+                ? `${finalTranscriptAggregator.trim()} ${transcriptChunk.trim()}` 
+                : transcriptChunk.trim();
+        } else {
+            interimTranscript += event.results[i][0].transcript;
+        }
+    }
+    setEntryText(finalTranscriptAggregator + interimTranscript);
+};
+```
+
+<Info>
+Interim results (grayed out text) show what you're saying in real-time. These convert to final text (solid) when the speech recognition confirms the words.
+</Info>
+
+### Requirements
+
+- **Internet connection** - The Web Speech API requires an active internet connection
+- **Browser support** - Works in Chrome, Edge, and Safari (may not work in Firefox)
+- **Microphone access** - You must grant permission to use your microphone
+- **Language** - Currently configured for English (US)
+
+<Warning>
+Real-time dictation will not work offline. If your internet connection drops during dictation, you'll see an error message and dictation will stop.
+</Warning>
+
+### Error messages
+
+Common dictation errors and their meanings:
+
+| Error Message | Cause | Solution |
+|--------------|-------|----------|
+| "No speech was detected" | No audio input detected | Speak louder or check microphone |
+| "Audio capture failed" | Microphone not accessible | Check device permissions |
+| "Microphone access denied" | Permission not granted | Allow microphone access in browser settings |
+| "Network issue occurred" | Lost internet connection | Reconnect to the internet |
+
+## Audio file transcription
+
+### Uploading audio files
+
+<Steps>
+  <Step title="Click the + icon">
+    In the new entry form, click the plus (+) icon at the bottom left of the text field.
+  </Step>
+  
+  <Step title="Select 'Upload Audio File'">
+    Choose "Upload Audio File" from the menu that appears.
+  </Step>
+  
+  <Step title="Choose your file">
+    Browse your device and select an audio file (WAV, MP3, M4A, FLAC, or OGG format).
+  </Step>
+  
+  <Step title="Wait for transcription">
+    The app will process your file. This may take a moment depending on the audio length. You'll see a status message while processing.
+  </Step>
+  
+  <Step title="Review the text">
+    Once complete, the transcribed text will be added to your entry text field.
+  </Step>
+</Steps>
+
+### Transcription engine
+
+Audio file transcription uses **Whisper**, OpenAI's state-of-the-art speech recognition model:
+
+```rust
+// From dictation.rs:76-153
+pub fn transcribe(&self, audio_file_path_str: &str) -> Result<String> {
+    // Load WAV file
+    let mut reader = hound::WavReader::open(audio_file_path)?;
+    
+    // Validate audio format (16kHz, mono, 16-bit PCM)
+    let wav_spec = reader.spec();
+    if wav_spec.sample_rate != 16000 {
+        return Err(anyhow!("Unsupported audio sample rate: {}. Whisper requires 16kHz."));
+    }
+    
+    // Convert audio to float format
+    let samples_i16: Vec<i16> = reader.samples::<i16>().collect()?;
+    let mut audio_data_f32: Vec<f32> = vec![0.0; samples_i16.len()];
+    convert_integer_to_float_audio(&samples_i16, &mut audio_data_f32)?;
+    
+    // Set transcription parameters
+    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    params.set_n_threads(4);
+    params.set_language(Some("en"));
+    
+    // Run transcription
+    state.full(params, &audio_data_f32[..])?;
+    
+    // Extract and return text
+    let num_segments = state.full_n_segments()?;
+    let mut full_text = String::new();
+    for i in 0..num_segments {
+        let segment_text = state.full_get_segment_text(i)?;
+        full_text.push_str(&segment_text);
+    }
+    
+    Ok(full_text.trim().to_string())
+}
+```
+
+### Audio requirements
+
+For best results, your audio files should be:
+
+- **Format**: WAV, MP3, M4A, FLAC, or OGG
+- **Sample rate**: 16kHz (16,000 Hz)
+- **Channels**: Mono (1 channel)
+- **Bit depth**: 16-bit PCM (for WAV files)
+
+<Note>
+If your audio doesn't meet these specifications, you may need to convert it using audio editing software like Audacity or an online converter.
+</Note>
+
+### Processing time
+
+Transcription speed depends on:
+
+- **Audio length** - Longer files take more time
+- **CPU speed** - Faster processors complete transcription quicker
+- **First run** - Initial transcription loads the model (may take longer)
+
+Typically:
+- Short files (1-2 minutes): 5-15 seconds
+- Medium files (5-10 minutes): 30-60 seconds
+- Long files (30+ minutes): Several minutes
+
+### Local processing
+
+<Info>
+Unlike real-time dictation, audio file transcription runs **completely offline** using a local Whisper model. Your audio never leaves your device.
+</Info>
+
+## Combining dictation with text
+
+Both dictation methods **append** to your existing entry text:
+
+- If the text field is empty, dictation becomes the entire entry
+- If you already have text, dictated content is added after a space
+- You can mix typed text, real-time dictation, and transcribed audio in a single entry
+
+```javascript
+// From App.jsx:407
+setEntryText(prev => prev.trim() ? `${prev.trim()} ${transcribedText.trim()}` : transcribedText.trim());
+```
+
+## Tips for better accuracy
+
+<Accordion title="For real-time dictation">
+  - Speak clearly and at a moderate pace
+  - Use punctuation commands ("period", "comma", "question mark")
+  - Minimize background noise
+  - Speak in complete sentences when possible
+</Accordion>
+
+<Accordion title="For audio file transcription">
+  - Use a good quality microphone when recording
+  - Record in a quiet environment
+  - Convert files to the recommended format (16kHz, mono WAV) if possible
+  - Keep recordings clear with minimal background noise
+</Accordion>
+
+## Dictation states and UI feedback
+
+The interface provides clear visual feedback:
+
+### Real-time dictation
+
+- **Inactive** - Blue microphone icon
+- **Active** - Red microphone icon with "Listening..." status
+- **Processing** - Interim text appears grayed out
+- **Complete** - "Dictation finished" success message
+
+### Audio file transcription
+
+- **Selecting** - File picker dialog
+- **Processing** - "Transcribing uploaded audio file, this may take a moment..." status
+- **Complete** - "Uploaded audio transcribed successfully!" message
+- **Error** - Specific error message about what went wrong
+
+### Disabled states
+
+While dictation is active:
+- The text input field is **disabled** (you can't type)
+- The save button is **disabled**
+- The other dictation method is **disabled** (can't use both simultaneously)
+
+## Troubleshooting
+
+### Real-time dictation issues
+
+**Problem**: "Speech recognition is not supported by your browser"
+- **Solution**: Use Chrome, Edge, or Safari instead of Firefox or older browsers
+
+**Problem**: No words appear when speaking
+- **Solution**: Check microphone permissions, volume levels, and internet connection
+
+**Problem**: Dictation cuts off mid-sentence
+- **Solution**: Network interruption; try again with a stable connection
+
+### Audio file issues
+
+**Problem**: "Unsupported audio sample rate"
+- **Solution**: Convert your audio to 16kHz using audio editing software
+
+**Problem**: "Unsupported audio channel count"
+- **Solution**: Convert stereo audio to mono
+
+**Problem**: "Failed to load dictation model"
+- **Solution**: Reinstall MoodJourney or verify the Whisper model files are present
+
+<Warning>
+If transcription fails, your audio file is not saved. Make sure to keep the original file until you confirm successful transcription.
+</Warning>
+
+## Privacy considerations
+
+### Real-time dictation
+- Uses Google's Web Speech API (cloud-based)
+- Audio is sent to Google's servers for processing
+- Subject to Google's privacy policy
+
+### Audio file transcription
+- Runs completely offline using local Whisper model
+- Audio files never leave your device
+- Fully private and secure
+
+<Tip>
+For maximum privacy, use audio file transcription instead of real-time dictation. Record your thoughts in a voice memo app, then upload the file to MoodJourney for offline transcription.
+</Tip>

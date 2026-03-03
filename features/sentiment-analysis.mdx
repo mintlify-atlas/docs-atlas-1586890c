@@ -1,0 +1,175 @@
+---
+title: AI sentiment analysis
+description: Understand how MoodJourney analyzes emotions in your journal entries using DistilRoBERTa
+---
+
+MoodJourney uses advanced AI to automatically detect and classify emotions in your journal entries. This happens seamlessly in the background every time you save or edit an entry.
+
+## How sentiment analysis works
+
+MoodJourney employs a fine-tuned **DistilRoBERTa** model for emotion classification. This is a state-of-the-art natural language processing model that has been specifically trained to recognize emotional content in text.
+
+<Info>
+DistilRoBERTa is a lighter, faster version of RoBERTa (Robustly Optimized BERT Pretraining Approach) that maintains high accuracy while being more efficient.
+</Info>
+
+## Detected emotion categories
+
+The model classifies your journal entries into seven distinct emotions:
+
+- **Joy** - Happiness, excitement, contentment
+- **Sadness** - Unhappiness, grief, melancholy
+- **Anger** - Frustration, irritation, rage
+- **Fear** - Anxiety, worry, apprehension
+- **Disgust** - Revulsion, distaste, displeasure
+- **Surprise** - Astonishment, shock, unexpectedness
+- **Neutral** - Balanced or non-emotional content
+
+If the model cannot confidently classify your entry, it will be marked as "Unknown."
+
+## The classification process
+
+When you save or edit an entry, the following happens behind the scenes:
+
+<Steps>
+  <Step title="Text preprocessing">
+    Your journal entry text is trimmed and prepared for analysis.
+  </Step>
+  
+  <Step title="Model inference">
+    The text is passed to the DistilRoBERTa model running locally on your device.
+    
+    ```rust
+    // From emotion.rs:60-72
+    pub fn classify(&self, text: &str) -> Result<String> {
+        let input = [text.trim()];
+        let output = self.model.predict(&input);
+        
+        if let Some(label) = output.get(0) {
+            Ok(label.text.clone())
+        } else {
+            Err(anyhow!("Failed to classify emotion"))
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Result extraction">
+    The model returns the detected emotion label with a confidence score.
+  </Step>
+  
+  <Step title="Visual feedback">
+    The interface briefly flashes with a color corresponding to the detected emotion, and the emotion is saved with your entry.
+  </Step>
+</Steps>
+
+## Emotion visualization
+
+MoodJourney uses color coding to represent different emotions:
+
+<Tabs>
+  <Tab title="Joy">
+    Displayed in warm, bright colors (typically yellow/gold) to represent happiness and positivity.
+  </Tab>
+  
+  <Tab title="Sadness">
+    Shown in cool blue tones to convey melancholy and introspection.
+  </Tab>
+  
+  <Tab title="Anger">
+    Rendered in red to indicate intensity and frustration.
+  </Tab>
+  
+  <Tab title="Fear">
+    Presented in purple or dark tones to suggest anxiety and concern.
+  </Tab>
+  
+  <Tab title="Other emotions">
+    Disgust (green), Surprise (orange), and Neutral (gray) each have distinct color representations.
+  </Tab>
+</Tabs>
+
+These colors appear in:
+- The emotion badge on each entry card
+- The mood calendar in Insights view
+- The background flash when saving entries
+
+## Model architecture
+
+The emotion classification system is built using Rust and the `rust-bert` library:
+
+```rust
+// From emotion.rs:12-58
+pub struct EmotionModel {
+    model: SequenceClassificationModel,
+}
+
+impl EmotionModel {
+    pub fn new(model_base_path: PathBuf) -> Result<Self> {
+        // Load model files: config.json, vocab.json, merges.txt, model.safetensors
+        let classification_config = SequenceClassificationConfig {
+            model_type: ModelType::Roberta,
+            device: Device::Cpu,
+            // ... configuration
+        };
+        
+        let model = SequenceClassificationModel::new(classification_config)?;
+        Ok(Self { model })
+    }
+}
+```
+
+<Note>
+The model runs entirely on your device using CPU inference. No journal data is ever sent to external servers for emotion analysis.
+</Note>
+
+## Privacy and performance
+
+### Local processing
+All emotion classification happens **locally on your device**. Your journal entries never leave your computer during sentiment analysis.
+
+### Performance considerations
+- **First analysis** - The initial emotion classification may take 1-2 seconds while the model loads into memory
+- **Subsequent analyses** - Once loaded, classifications typically complete in under a second
+- **Resource usage** - The model uses CPU-based inference and requires approximately 250MB of memory when active
+
+## Accuracy and limitations
+
+<Warning>
+While the DistilRoBERTa model is highly accurate, emotion classification is complex and subjective. The detected emotion may not always perfectly match your intended sentiment.
+</Warning>
+
+### Factors affecting accuracy:
+- **Text length** - Very short entries (1-2 words) may not provide enough context
+- **Mixed emotions** - Entries expressing multiple emotions will be classified based on the dominant sentiment
+- **Sarcasm and irony** - Like most NLP models, detection of non-literal language can be challenging
+- **Personal expression** - Unique writing styles or idioms may occasionally be misinterpreted
+
+## Error handling
+
+If emotion classification fails:
+
+1. Your entry will still be saved successfully
+2. The emotion will be marked as "unknown"
+3. A warning message will appear indicating the classification issue
+4. You can continue using all other features normally
+
+```javascript
+// From App.jsx:439
+try { 
+    classifiedEmotion = await invoke("classify_emotion", { text: currentEntryText }); 
+} catch (classifyError) { 
+    statusMessage += `Emotion classification failed. `; 
+    statusSeverity = "warning"; 
+}
+```
+
+## Viewing emotion history
+
+You can review the emotions detected across all your entries in the **Insights** page:
+
+- **Emotion summary** - See counts for each emotion category
+- **Calendar view** - Visual representation of your emotional journey with color-coded dates
+- **Trend analysis** - Identify patterns in your emotional state over time
+
+The Insights page helps you understand your emotional patterns and recognize trends that might not be obvious from individual entries.

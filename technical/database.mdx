@@ -1,0 +1,305 @@
+---
+title: Database
+description: SQLite database schema and data persistence implementation
+---
+
+MoodJourney uses SQLite for local data persistence, storing journal entries, chat sessions, and messages entirely on the user's device.
+
+## Database initialization
+
+The database is initialized at application startup in `db.rs:37`:
+
+```rust
+pub fn init_db_at_path(db_file_path: &Path) -> Result<()> {
+    let conn = Connection::open(db_file_path)?;
+    // Create tables...
+}
+```
+
+The database file is stored at:
+- **Production**: `{app_data_dir}/entries.db`
+- **Development**: `./entries.db` (relative to working directory)
+
+<Info>
+The database uses Rusqlite with the `bundled` feature, which embeds SQLite directly into the binary. This eliminates external dependencies.
+</Info>
+
+## Schema
+
+### Entries table
+
+Stores journal entries with optional password protection and image attachments:
+
+```sql
+CREATE TABLE IF NOT EXISTS entries (
+    date TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT,
+    password TEXT,
+    image TEXT
+)
+```
+
+<Accordion title="Field descriptions">
+- **date**: Primary key in `YYYY-MM-DD` format (e.g., "2026-03-03")
+- **title**: Entry title/heading (required)
+- **content**: Journal entry content with embedded emotion/suggestion metadata
+- **password**: Optional password for entry-level encryption
+- **image**: Relative path to image file in `journal_images/` directory
+</Accordion>
+
+### Chat sessions table
+
+Tracks AI assistant chat sessions:
+
+```sql
+CREATE TABLE IF NOT EXISTS assistant_chat_sessions (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_modified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    title TEXT
+)
+```
+
+<Accordion title="Field descriptions">
+- **id**: UUID v4 identifier for the session
+- **created_at**: ISO 8601 timestamp (RFC3339 format)
+- **last_modified_at**: Updated on each new message
+- **title**: Auto-generated from first user message (first 50 chars)
+</Accordion>
+
+### Chat messages table
+
+Stores individual messages within chat sessions:
+
+```sql
+CREATE TABLE IF NOT EXISTS assistant_chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES assistant_chat_sessions(id) 
+        ON DELETE CASCADE
+)
+```
+
+<Accordion title="Field descriptions">
+- **id**: Auto-incrementing integer primary key
+- **session_id**: Foreign key to `assistant_chat_sessions.id`
+- **sender**: Either "user" or "assistant"
+- **content**: Message text content
+- **timestamp**: ISO 8601 timestamp
+</Accordion>
+
+<Note>
+The `ON DELETE CASCADE` constraint ensures that deleting a chat session automatically removes all associated messages.
+</Note>
+
+## Data structures
+
+### Entry struct (db.rs:11)
+
+```rust
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Entry {
+    pub date: String,
+    pub title: Option<String>,
+    pub content: Option<String>,
+    pub password: Option<String>,
+    pub image: Option<String>,
+}
+```
+
+The `content` field contains the main journal text plus metadata:
+
+```
+[User's journal entry text...]
+
+🧠 Emotion: sadness
+
+💡 Suggestion:
+- Perhaps take 15 minutes for a quick walk...
+- Before tomorrow, could you identify one or two key tasks...
+- Remember to acknowledge what you *did* manage today...
+```
+
+### ChatSession struct (db.rs:20)
+
+```rust
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ChatSession {
+    pub id: String,
+    pub created_at: String,
+    pub last_modified_at: String,
+    pub title: Option<String>,
+}
+```
+
+### ChatMessage struct (db.rs:28)
+
+```rust
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ChatMessage {
+    pub id: i64,
+    pub session_id: String,
+    pub sender: String,
+    pub content: String,
+    pub timestamp: String,
+}
+```
+
+## Core operations
+
+### Journal entries
+
+#### Create entry (db.rs:159)
+
+```rust
+pub fn create_entry_with_now_in_db(
+    db_file_path: &Path,
+    title: &str,
+    content: Option<&str>,
+    password: Option<&str>,
+    image: Option<&str>
+) -> Result<()>
+```
+
+Automatically sets the date to today's date using `Local::now()`.
+
+#### Read entries (db.rs:109)
+
+```rust
+pub fn get_entries_from_db(
+    db_file_path: &Path
+) -> Result<Vec<Entry>>
+```
+
+Returns all entries ordered by date (descending) for the calendar view.
+
+#### Update entry (db.rs:144)
+
+```rust
+pub fn update_entry_by_date_in_db(
+    db_file_path: &Path,
+    date: &str,
+    new_title: Option<&str>,
+    new_content: Option<&str>,
+    new_password: Option<&str>,
+    new_image: Option<&str>
+) -> Result<()>
+```
+
+#### Delete entry (db.rs:153)
+
+```rust
+pub fn delete_entry_by_date_from_db(
+    db_file_path: &Path,
+    date: &str
+) -> Result<()>
+```
+
+<Note>
+Entry deletion also triggers image file cleanup in `main.rs:164` to remove orphaned image files.
+</Note>
+
+### Chat operations
+
+#### Create session (db.rs:201)
+
+```rust
+pub fn create_new_chat_session_in_db(
+    db_file_path: &Path
+) -> Result<String>
+```
+
+Generates a UUID v4 identifier and returns the session ID.
+
+#### Save message (db.rs:212)
+
+```rust
+pub fn save_chat_message_in_db(
+    db_file_path: &Path,
+    session_id: &str,
+    sender: &str,
+    content: &str
+) -> Result<()>
+```
+
+Automatically updates the session title from the first user message (db.rs:216-230):
+
+```rust
+if sender == "user" {
+    let current_title: Option<String> = conn.query_row(
+        "SELECT title FROM assistant_chat_sessions WHERE id = ?1",
+        params![session_id],
+        |row| row.get::<_, Option<String>>(0),
+    ).optional()?.flatten();
+
+    if current_title.is_none() || current_title.as_deref() == Some("") {
+        let new_title: String = content.chars().take(50).collect();
+        let final_title = if content.chars().count() > 50 {
+            format!("{}...", new_title)
+        } else {
+            new_title
+        };
+        // Update session title...
+    }
+}
+```
+
+## Date handling
+
+All dates use ISO 8601 format:
+
+- **Entry dates**: `YYYY-MM-DD` (e.g., "2026-03-03")
+- **Timestamps**: RFC3339 format (e.g., "2026-03-03T14:30:00Z")
+
+Validation is enforced in `db.rs:80`:
+
+```rust
+if NaiveDate::parse_from_str(&entry.date, "%Y-%m-%d").is_err() {
+    return Err(RusqliteError::SqliteFailure(
+        ffi::Error {
+            code: ffi::ErrorCode::ConstraintViolation,
+            extended_code: ffi::ErrorCode::ConstraintViolation as i32,
+        },
+        Some("Date must be a valid YYYY-MM-DD format".to_string()),
+    ));
+}
+```
+
+## Image storage
+
+Images are stored separately from the database:
+
+1. **Upload**: Images are base64-encoded and sent to `upload_image_file` command (main.rs:198)
+2. **Storage**: Saved to `{app_local_data_dir}/journal_images/{uuid}.{ext}`
+3. **Database**: Only the relative path is stored (e.g., "journal_images/550e8400-e29b-41d4-a716-446655440000.png")
+4. **Cleanup**: Images are deleted when entries are updated or removed (main.rs:136, main.rs:171)
+
+<Info>
+This approach keeps the database lightweight while allowing for large image attachments.
+</Info>
+
+## Connection management
+
+Each database operation opens a new connection:
+
+```rust
+let conn = Connection::open(db_file_path)?;
+```
+
+Connections are automatically closed when they go out of scope. This simple approach works well for desktop applications with low concurrency.
+
+## Testing
+
+The database module includes comprehensive tests (db.rs:312-521):
+
+- Entry CRUD operations
+- Chat session creation and deletion
+- Message persistence
+- Session title auto-generation
+- Cascade deletion behavior
+
+Tests use temporary SQLite files to avoid polluting the development database.

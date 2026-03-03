@@ -1,0 +1,218 @@
+---
+title: Installation
+description: Install MoodJourney and configure all dependencies for your platform
+---
+
+# Installation
+
+This guide will walk you through installing MoodJourney and all required dependencies on Windows, macOS, or Linux.
+
+## System requirements
+
+Before installing MoodJourney, ensure your system meets these minimum requirements:
+
+- Intel Core i5 Processor or AMD Ryzen 5 Processor
+- 8GB RAM
+- 256GB SSD (NVMe or SATA)
+- Windows 10 21H2 (64-bit), macOS 10.15 Catalina, or a modern Linux distribution (e.g., Ubuntu 20.04)
+- Internet Connection
+
+## Prerequisites
+
+Install these tools on all platforms:
+
+<Steps>
+  <Step title="Install Git">
+    Download and install Git from [git-scm.com](https://git-scm.com/downloads)
+  </Step>
+  
+  <Step title="Install Python">
+    Download and install Python from [python.org](https://www.python.org/downloads/)
+  </Step>
+  
+  <Step title="Install Visual Studio Code">
+    Download and install VS Code from [code.visualstudio.com](https://code.visualstudio.com/download)
+  </Step>
+  
+  <Step title="Install Node.js">
+    Download and install Node.js from [nodejs.org](https://nodejs.org/en)
+    
+    Verify installation:
+    ```bash
+    node -v
+    npm -v
+    ```
+  </Step>
+  
+  <Step title="Install Rust">
+    Download and install Rust from [rust-lang.org](https://www.rust-lang.org/tools/install)
+    
+    Verify installation:
+    ```bash
+    rustc --version
+    cargo --version
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  On Windows, you can download Git, Python, and Visual Studio Code through [Ninite](https://ninite.com/) to simplify the installation process.
+</Note>
+
+## Platform-specific dependencies
+
+<Warning>
+  **Windows users**: Use a Developer Command Prompt for VS 2022 for all installation and build commands.
+</Warning>
+
+<CodeGroup>
+
+```bash Windows
+# Visual Studio 2022 is required
+# Download from: https://learn.microsoft.com/en-us/cpp/build/vscpp-step-0-installation?view=msvc-170
+# When prompted, select "Desktop development with C++" workload
+
+# Install LLVM 18.1.8
+# Download from: https://github.com/llvm/llvm-project/releases/tag/llvmorg-18.1.8
+# When prompted, select "Add LLVM to the system PATH for all users"
+clang -v
+
+# Install CMake
+# Download from: https://cmake.org/download/
+# When prompted, select "Add CMake to the system PATH for all users"
+cmake --version
+```
+
+```bash macOS
+# Install Xcode Command Line Tools
+xcode-select --install
+
+# Install Homebrew (if not already installed)
+# Visit: https://brew.sh/
+
+# Install LLVM and CMake
+brew install llvm cmake
+```
+
+```bash Linux
+# Update package list
+sudo apt-get update
+
+# Install essential build tools
+sudo apt-get install -y build-essential
+
+# Install LLVM
+sudo apt-get install -y llvm
+
+# Install CMake
+sudo apt-get install -y cmake
+
+# Install GLib development libraries
+sudo apt-get install -y libglib2.0-dev
+
+# Install GTK 3.0 development libraries
+sudo apt-get install -y libgtk-3-dev
+
+# Install WebKitGTK development libraries
+sudo apt-get install -y libwebkit2gtk-4.1-dev
+
+# Install libsoup development libraries
+sudo apt-get install -y libsoup-3.0-dev
+```
+
+</CodeGroup>
+
+## Install MoodJourney
+
+<Steps>
+  <Step title="Install Python dependencies">
+    Install the required Python packages for AI model support:
+    
+    ```bash
+    pip install requests
+    pip install transformers
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+    ```
+    
+    <Note>
+      Run these commands from your home directory in Command Prompt/Terminal.
+    </Note>
+  </Step>
+  
+  <Step title="Clone the repository">
+    Clone MoodJourney and navigate to the project directory:
+    
+    ```bash
+    git clone https://github.com/MAJIEF-CS180/MoodJourney.git
+    cd MoodJourney
+    ```
+  </Step>
+  
+  <Step title="Download AI models">
+    Download the WhisperAI dictation model and DistilRoBERTa sentiment analysis model:
+    
+    ```bash
+    cd scripts
+    python download_model_dictation.py
+    python download_model_emotion.py
+    cd ..
+    ```
+  </Step>
+  
+  <Step title="Configure Gemini API key">
+    Set up the API configuration file:
+    
+    1. Navigate to `src-tauri/src/` and find `config_template.rs`
+    2. Make a copy and rename it to `config.rs`
+    3. Generate a Gemini 2.0 Flash API key at [Google AI Studio](https://aistudio.google.com/app/apikey)
+    4. In `config.rs`, replace `YOUR_GEMINI_API_KEY_GOES_HERE` with your API key
+    
+    <Warning>
+      Do NOT commit `config.rs` with your actual API key to GitHub. Only `config_template.rs` should be committed.
+    </Warning>
+  </Step>
+  
+  <Step title="Install Tauri CLI">
+    Install the Tauri command-line interface globally:
+    
+    ```bash
+    npm install -g @tauri-apps/cli
+    tauri --version
+    ```
+  </Step>
+  
+  <Step title="Install Node.js dependencies">
+    Install all frontend dependencies:
+    
+    ```bash
+    npm install
+    ```
+  </Step>
+  
+  <Step title="Build and run">
+    Start MoodJourney in development mode:
+    
+    ```bash
+    npm run tauri dev
+    ```
+    
+    The application will compile and launch automatically.
+  </Step>
+</Steps>
+
+## Running tests
+
+To run the Rust test suite:
+
+```bash
+cd src-tauri
+cargo test
+```
+
+<Warning>
+  Windows users must use a Developer Command Prompt for VS 2022 when running tests.
+</Warning>
+
+## Next steps
+
+Now that you have MoodJourney installed, proceed to the [Quick start](/quickstart) guide to create your first journal entry.

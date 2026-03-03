@@ -1,0 +1,125 @@
+---
+title: Theme customization
+description: Customize MoodJourney's appearance with light, dark, and girlboss themes
+---
+
+MoodJourney offers multiple theme options to match your aesthetic preferences and environment. Choose from light, dark, system, or the unique girlboss theme.
+
+## Available themes
+
+### Light theme
+
+A clean, minimalist light theme with a soft color palette:
+
+- **Primary color**: Navy blue (`#23325A`)
+- **Background**: Warm off-white (`#F3EEEB`)
+- **Paper/cards**: Creamy white (`#FFFCF9`)
+- **Text**: Dark navy for high contrast
+
+Ideal for daytime use and well-lit environments.
+
+### Dark theme
+
+A sophisticated dark theme for reduced eye strain:
+
+- **Primary color**: Warm beige (`#F3EEEB`)
+- **Background**: Deep navy (`#1A2238`)
+- **Paper/cards**: Rich blue (`#23325A`)
+- **Text**: Light beige for readability
+
+Perfect for nighttime journaling or low-light conditions.
+
+### System theme
+
+Automatically switches between light and dark themes based on your operating system's color scheme preference.
+
+<Note>
+  System theme uses the `prefers-color-scheme` media query to detect your OS settings. Changes are applied immediately when your system theme changes.
+</Note>
+
+### Girlboss theme
+
+A vibrant, empowering theme with playful aesthetics:
+
+- **Primary color**: Gold (`#DAA520`)
+- **Background**: Pink gradient (`#FFD1DC`)
+- **Paper/cards**: Blush pink (`#FFF0F5`)
+- **Text**: Purple (`#5A2D82`)
+- **Font**: Brush Script MT with Comic Sans fallback
+- **Special effects**: Gold shimmer, dotted background pattern, gradient buttons
+
+<Info>
+  The girlboss theme features unique styling including sparkle emojis in the theme selector, custom gold-bordered buttons, and a textured background for a distinctive journaling experience.
+</Info>
+
+## Changing your theme
+
+<Steps>
+  <Step title="Open settings">
+    Click the settings icon (gear) in the sidebar drawer.
+  </Step>
+  
+  <Step title="Select theme">
+    In the "Theme" dropdown menu, choose from:
+    - **Light** - Bright, minimalist design
+    - **Dark** - Comfortable for low light
+    - **System** - Matches OS preference
+    - **✨ Girlboss ✨** - Fun, empowering style
+  </Step>
+  
+  <Step title="Apply immediately">
+    The theme applies instantly when selected. No save button required.
+  </Step>
+</Steps>
+
+## Theme features
+
+All themes include:
+
+### Glassmorphism effects
+
+Cards, drawers, and app bars use semi-transparent backgrounds with blur effects for a modern, layered appearance:
+
+```jsx
+backgroundColor: alpha(theme.palette.background.paper, 0.5),
+backdropFilter: 'blur(10px)',
+WebkitBackdropFilter: 'blur(10px)',
+```
+
+### Dynamic monet colors
+
+When viewing a journal entry with an attached image, the theme can extract dominant colors and apply them as accent colors throughout the UI (except in girlboss mode).
+
+<CodeGroup>
+```jsx Light mode monet
+// In light mode, monet colors affect borders
+borderColor: alpha(activeMonetColor, 0.5)
+```
+
+```jsx Dark mode monet
+// In dark mode, monet colors tint backgrounds
+backgroundColor: alpha(activeMonetColor, existingAlpha)
+```
+</CodeGroup>
+
+### Emotion-based background flashes
+
+When you save or update an entry, the background briefly flashes a color corresponding to the detected emotion:
+
+- **Joy**: Warm, bright colors
+- **Sadness**: Cool, muted tones
+- **Anger**: Red-orange hues
+- **Fear**: Purple tints
+- **Surprise**: Yellow highlights
+
+<Note>
+  The flash effect lasts 1 second and uses a 30% opacity overlay to avoid disrupting your workflow.
+</Note>
+
+## Theme persistence
+
+Your theme preference is saved to browser localStorage under the key `appThemeMode` and automatically loads when you restart the application.
+
+<Info>
+  Theme data is stored locally in your browser. If you clear browser data or use MoodJourney on a different device, you'll need to reselect your preferred theme.
+</Info>

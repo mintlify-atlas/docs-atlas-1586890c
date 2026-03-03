@@ -1,80 +1,260 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Get started with MoodJourney and create your first journal entry with AI-powered features
 ---
 
-## Get started in three steps
+# Quick start
 
-Get your documentation site running locally and make your first customization.
+This guide will help you get started with MoodJourney, from initial setup through creating your first journal entry with AI-powered sentiment analysis.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Before you begin, make sure you have:
+
+- Completed the [Installation](/installation) guide
+- Downloaded the WhisperAI and DistilRoBERTa models
+- Configured your Gemini API key in `config.rs`
+- Successfully run `npm run tauri dev`
+
+## Launch MoodJourney
+
+<Steps>
+  <Step title="Start the application">
+    From the project root directory, launch MoodJourney in development mode:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    npm run tauri dev
+    ```
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    <Note>
+      On Windows, use a Developer Command Prompt for VS 2022.
+    </Note>
+  </Step>
+  
+  <Step title="Set up PIN protection (optional)">
+    On first launch, you can set up a PIN to protect your journal entries:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    - The app will prompt you to create a PIN for security
+    - This PIN encrypts your journal entries locally
+    - You can skip this step if you prefer not to use PIN protection
+    
+    <Warning>
+      If you forget your PIN, you won't be able to access your encrypted journal entries.
+    </Warning>
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Creating your first entry
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Create a new entry">
+    Click the "New Entry" button or use the keyboard shortcut to start a new journal entry.
+  </Step>
+  
+  <Step title="Add a title">
+    Give your entry a descriptive title that captures the main theme or topic.
+    
+    ```typescript
+    // Example: Tauri command for creating entries
+    create_entry(
+      app_db_path: State<'_, PathBuf>,
+      title: &str, 
+      content: Option<&str>, 
+      password: Option<&str>, 
+      image: Option<&str>
+    )
+    ```
+  </Step>
+  
+  <Step title="Write your journal content">
+    You have multiple ways to add content to your entry:
+    
+    **Type manually**: Simply type your thoughts in the text editor
+    
+    **Use voice dictation**: Click the microphone icon to transcribe speech to text
+    - The WhisperAI model will convert your audio to text
+    - Perfect for quick journaling on the go
+    
+    **Add images**: Attach images to capture visual memories alongside your writing
+  </Step>
+  
+  <Step title="Add optional password protection">
+    For sensitive entries, you can add an additional password:
+    
+    - This creates entry-level encryption on top of your PIN
+    - Useful for particularly private thoughts or experiences
+  </Step>
+  
+  <Step title="Save your entry">
+    Click "Save" to store your journal entry. The app will automatically:
+    
+    - Save the entry to the local SQLite database
+    - Analyze the emotional content using the DistilRoBERTa model
+    - Classify the emotion (e.g., joy, sadness, anger, fear, surprise, disgust, neutral)
+    - Store the timestamp using the current local date
+  </Step>
+</Steps>
 
-### Step 3: Go live
+## View sentiment analysis
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+After saving your entry, MoodJourney automatically analyzes the emotional tone:
+
+<CodeGroup>
+
+```rust Emotion classification
+// The emotion.rs module uses DistilRoBERTa for classification
+use emotion::{EmotionModel, classify_emotion};
+
+// Emotions are classified into categories:
+// - Joy
+// - Sadness
+// - Anger
+// - Fear
+// - Surprise
+// - Disgust
+// - Neutral
+```
+
+```typescript Read entries
+// Retrieve all entries with their emotion data
+read_entries(app_db_path: State<'_, PathBuf>) -> Result<Vec<Entry>, String>
+```
+
+</CodeGroup>
+
+The sentiment analysis results appear:
+
+- On the entry card in your journal list
+- In the calendar view, where each day is color-coded by dominant emotion
+- In the mood trend visualization charts
+
+## Explore mood trends
+
+Navigate to the calendar view to see your emotional patterns:
+
+1. **Calendar visualization**: Each day displays the emotion associated with that day's entry
+2. **Trend charts**: View graphs showing how your emotions change over time
+3. **Pattern recognition**: Identify recurring emotional patterns and triggers
+
+## Use AI features
+
+### Get AI suggestions
+
+Click the "Get Suggestion" button on any entry to receive AI-generated feedback:
+
+```rust
+// Powered by Gemini 2.0 Flash API
+use crate::suggestion::generate_suggestion_via_api;
+
+// Provides insights and suggestions based on your journal content
+```
+
+The AI will:
+- Analyze your entry content
+- Provide constructive feedback
+- Suggest reflection prompts
+- Offer emotional insights
+
+### Chat with AI assistant
+
+Open the AI Assistant to have a conversation about your journal:
+
+- The assistant has context from all your journal entries
+- Ask questions about your emotional patterns
+- Get personalized suggestions for self-reflection
+- Discuss specific entries or time periods
+
+<Note>
+  The AI assistant requires a valid Gemini API key configured in `src-tauri/src/config.rs`.
+</Note>
+
+## Voice dictation
+
+To use the voice dictation feature:
+
+<Steps>
+  <Step title="Click the microphone icon">
+    Start recording by clicking the microphone button in the entry editor.
+  </Step>
+  
+  <Step title="Speak clearly">
+    Speak your thoughts naturally. The WhisperAI model supports multiple languages and accents.
+  </Step>
+  
+  <Step title="Stop recording">
+    Click the microphone icon again to stop recording and process the audio.
+  </Step>
+  
+  <Step title="Review transcription">
+    The transcribed text will appear in your entry. Edit as needed for accuracy.
+  </Step>
+</Steps>
+
+```rust
+// Dictation is powered by WhisperAI
+use dictation::{DictationModel, perform_dictation_cmd};
+
+// Converts audio files to text with high accuracy
+```
+
+## Managing entries
+
+You can perform these operations on your journal entries:
+
+- **View**: Click any entry to read the full content
+- **Edit**: Modify existing entries (emotion analysis updates automatically)
+- **Delete**: Remove entries you no longer want to keep
+- **Search**: Find entries by date, title, or emotion
+- **Filter**: View entries by specific emotions or time periods
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Journal regularly" icon="calendar-check">
+    Daily journaling provides more accurate mood trend data and emotional insights
+  </Card>
+  
+  <Card title="Be honest" icon="heart">
+    The AI works best when you write authentically about your feelings and experiences
+  </Card>
+  
+  <Card title="Review trends" icon="chart-line">
+    Regularly check your mood visualizations to identify patterns and triggers
+  </Card>
+  
+  <Card title="Use AI feedback" icon="lightbulb">
+    Take advantage of AI suggestions to deepen your self-reflection practice
+  </Card>
+</CardGroup>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you've created your first entry, explore these features:
 
-<CardGroup cols={2}>
+- Add multiple entries to build your mood trend history
+- Experiment with voice dictation for faster journaling
+- Chat with the AI assistant about your emotional patterns
+- Review your calendar to identify weekly or monthly trends
+- Try the AI suggestion feature for personalized insights
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+## Troubleshooting
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+**Application won't start**
+- Ensure all dependencies are installed correctly
+- Check that AI models are downloaded in the correct directory
+- Verify your Gemini API key is configured in `config.rs`
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+**Voice dictation not working**
+- Confirm the WhisperAI model was downloaded successfully
+- Check microphone permissions in your operating system
+- Ensure your audio device is properly connected
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+**Sentiment analysis seems incorrect**
+- The DistilRoBERTa model analyzes text patterns; very short entries may have less accurate results
+- Try writing more detailed entries (100+ words) for better emotion classification
+- Remember that the AI detects emotional tone in the writing, which may differ from your actual feelings
 
-</CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+**AI assistant not responding**
+- Verify your Gemini API key is valid and has not expired
+- Check your internet connection (required for API calls)
+- Ensure you have available quota on your Google AI Studio account

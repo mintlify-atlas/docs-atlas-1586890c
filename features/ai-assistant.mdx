@@ -1,0 +1,289 @@
+---
+title: Chat with AI assistant
+description: Get personalized support and insights by chatting with MoodJourney's AI assistant
+---
+
+MoodJourney includes an intelligent AI assistant that you can chat with about your thoughts, feelings, and journal entries. The assistant provides empathetic responses and can help you process emotions and gain new perspectives.
+
+## Accessing the assistant
+
+Click "Assistant" in the sidebar navigation to open the chat interface. You'll see a messaging layout with:
+
+- **Chat area** - Conversation history with the AI
+- **Input field** - Type your messages here
+- **Chat history** - List of previous conversations in the right panel
+
+## Starting a conversation
+
+<Steps>
+  <Step title="Create a new chat">
+    Click the "New Chat" button at the top of the page. You'll see a welcome message from the assistant.
+  </Step>
+  
+  <Step title="Type your message">
+    Enter your thoughts, questions, or feelings in the text field at the bottom of the chat area.
+  </Step>
+  
+  <Step title="Send and wait">
+    Click the send button or press Enter. The assistant will show a "typing..." indicator while generating a response.
+  </Step>
+  
+  <Step title="Continue the conversation">
+    The assistant remembers the context of your conversation, so you can have natural, flowing discussions.
+  </Step>
+</Steps>
+
+<Info>
+The assistant uses Google's Gemini 2.0 Flash model to generate thoughtful, context-aware responses.
+</Info>
+
+## How the assistant works
+
+### Message flow
+
+When you send a message:
+
+```javascript
+// From AssistantPage.jsx:148-170
+const handleSendMessage = async () => {
+    const trimmedInput = userInput.trim();
+    if (!trimmedInput) return;
+    
+    // Add user message to UI
+    const optimisticUserMessage = { 
+        id: `temp-user-${Date.now()}`, 
+        sender: 'user', 
+        text: trimmedInput 
+    };
+    setMessages(prevMessages => [...prevMessages, optimisticUserMessage]);
+    
+    // Call AI backend
+    const response = await invoke("chat_with_moodjourney_cmd", {
+        userMessage: trimmedInput,
+        sessionIdOption: currentSessionId
+    });
+    
+    // Display assistant response
+    const newAssistantMessage = {
+        sender: 'assistant',
+        text: response.assistant_response
+    };
+    setMessages(prevMessages => [...prevMessages, newAssistantMessage]);
+}
+```
+
+### AI model configuration
+
+The assistant uses the following settings for balanced, helpful responses:
+
+```rust
+// From suggestion.rs:116-123
+"generationConfig": {
+    "temperature": 0.75,    // Balanced creativity
+    "topP": 0.9,            // Diverse word choice
+    "topK": 40,             // Quality control
+    "maxOutputTokens": 600  // Detailed responses
+}
+```
+
+<Tabs>
+  <Tab title="Temperature (0.75)">
+    Provides a good balance between creative, varied responses and consistency. Not too random, not too rigid.
+  </Tab>
+  
+  <Tab title="Max tokens (600)">
+    Allows for detailed, thoughtful responses without becoming overly long or unfocused.
+  </Tab>
+</Tabs>
+
+## Chat sessions
+
+### Session management
+
+Each conversation is automatically saved as a chat session:
+
+- **Auto-saving** - Your conversation is saved after each message exchange
+- **Session titles** - Sessions are titled "Chat" with the date of last modification
+- **Persistent history** - All your past conversations are saved and accessible
+
+### Managing conversations
+
+<Steps>
+  <Step title="View past chats">
+    The right panel shows all your previous chat sessions, sorted by most recent.
+  </Step>
+  
+  <Step title="Load a conversation">
+    Click any session in the list to load and continue that conversation.
+  </Step>
+  
+  <Step title="Delete a chat">
+    Click the three-dot menu icon on any session and select "Delete Chat" to remove it permanently.
+  </Step>
+  
+  <Step title="Start fresh">
+    Click "New Chat" to begin a new conversation independent of previous sessions.
+  </Step>
+</Steps>
+
+<Warning>
+Deleting a chat session is permanent and cannot be undone. All messages in that conversation will be lost.
+</Warning>
+
+## Message formatting
+
+### User messages
+
+- Appear on the **right side** of the chat
+- Displayed with a **primary color background**
+- Include a subtle border for definition
+
+### Assistant messages
+
+- Appear on the **left side** of the chat
+- Displayed with a **secondary color background**
+- Support multi-line text with proper formatting
+
+```javascript
+// From AssistantPage.jsx:254-274
+<Paper
+    elevation={1}
+    sx={{
+        p: 1.5,
+        borderRadius: '12px',
+        bgcolor: msg.sender === 'user' 
+            ? alpha(theme.palette.primary.main, 0.2) 
+            : alpha(theme.palette.secondary.main, 0.2),
+        border: `1px solid ${msg.sender === 'user' 
+            ? theme.palette.primary.main 
+            : theme.palette.secondary.main}`,
+    }}
+>
+    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+        {msg.text}
+    </Typography>
+</Paper>
+```
+
+## Privacy and API configuration
+
+### API key requirement
+
+The AI assistant requires a Google Gemini API key to function:
+
+<Steps>
+  <Step title="Get an API key">
+    Visit the Google AI Studio and create a free Gemini API key.
+  </Step>
+  
+  <Step title="Configure MoodJourney">
+    Open `src-tauri/src/config.rs` and replace the placeholder with your API key.
+  </Step>
+  
+  <Step title="Rebuild the app">
+    Restart MoodJourney for the changes to take effect.
+  </Step>
+</Steps>
+
+<Warning>
+Without a configured API key, the assistant will return an error: "API_KEY_NOT_CONFIGURED". Follow the instructions in `config_template.rs` to set it up.
+</Warning>
+
+### Data transmission
+
+Unlike sentiment analysis (which runs locally), the AI assistant:
+
+- **Sends your messages** to Google's Gemini API for processing
+- **Receives responses** from the cloud-based model
+- **Stores conversations** locally on your device
+
+Your journal entries themselves are NOT automatically shared with the assistant unless you explicitly copy and paste content into a chat message.
+
+<Note>
+Review Google's privacy policy and terms of service for Gemini API to understand how your chat data is handled.
+</Note>
+
+## Use cases
+
+### Emotional processing
+
+Ask the assistant to help you:
+- Understand complex feelings
+- Process difficult experiences
+- Gain new perspectives on situations
+- Develop coping strategies
+
+### Journaling prompts
+
+Request:
+- Writing prompts to overcome writer's block
+- Reflection questions
+- Gratitude exercises
+- Goal-setting frameworks
+
+### General support
+
+Discuss:
+- Daily challenges and wins
+- Stress management techniques
+- Mindfulness practices
+- Self-care ideas
+
+<Tip>
+The assistant provides the most helpful responses when you're specific about what you need. Instead of "I feel bad," try "I'm feeling overwhelmed by work deadlines and need help prioritizing."
+</Tip>
+
+## Limitations and disclaimers
+
+<Warning>
+The AI assistant is NOT a replacement for professional mental health care. It cannot diagnose conditions, prescribe treatment, or handle crisis situations.
+</Warning>
+
+### Important reminders
+
+1. **Not a therapist** - The assistant is a conversational AI, not a licensed mental health professional
+2. **Verify information** - Always fact-check important advice or information
+3. **Crisis support** - If you're in crisis, contact emergency services or a crisis hotline
+4. **Privacy considerations** - Your chats are sent to Google's servers for processing
+
+A disclaimer appears at the bottom of the chat interface:
+
+```javascript
+// From AssistantPage.jsx:304-306
+<Typography variant="caption" color="text.secondary">
+    Assistant can make mistakes. Please do not consult it for professional advice, 
+    and make sure to verify all information.
+</Typography>
+```
+
+## Error handling
+
+If the assistant encounters an error:
+
+- Your message will be removed from the chat
+- An error message will appear: "Sorry, I encountered an error. Please try again."
+- Your previous conversation history remains intact
+- You can retry your message or rephrase it
+
+Common errors:
+- **API key not configured** - Set up your Gemini API key
+- **Network issues** - Check your internet connection
+- **API rate limits** - Wait a moment and try again
+
+## Best practices
+
+<Accordion title="Be specific">
+  Provide context and details to get more relevant, helpful responses.
+</Accordion>
+
+<Accordion title="Use sessions purposefully">
+  Create separate chat sessions for different topics or time periods to keep conversations organized.
+</Accordion>
+
+<Accordion title="Review past chats">
+  Revisit previous conversations to track your thinking over time and see how your perspective has evolved.
+</Accordion>
+
+<Accordion title="Combine with journaling">
+  Use the assistant to process experiences, then write about those insights in your journal entries.
+</Accordion>

@@ -1,0 +1,142 @@
+---
+title: API key setup
+description: Configure your Gemini API key to enable AI-powered features
+---
+
+MoodJourney uses Google's Gemini 2.0 Flash API to power AI features including sentiment analysis suggestions and the AI assistant. You'll need to configure an API key before these features work.
+
+## Why you need an API key
+
+The Gemini API enables:
+
+- **AI-generated suggestions**: Personalized feedback and recommendations for your journal entries
+- **AI assistant**: Conversational AI that can discuss your journal entries and provide insights
+- **Enhanced sentiment context**: More nuanced understanding of your emotional state
+
+<Note>
+  Local sentiment analysis using DistilRoBERTa works without an API key. Only the AI suggestions and assistant features require Gemini API access.
+</Note>
+
+## Getting your Gemini API key
+
+<Steps>
+  <Step title="Visit Google AI Studio">
+    Navigate to [Google AI Studio](https://aistudio.google.com/app/apikey). You'll need to sign in with a Google Account.
+  </Step>
+  
+  <Step title="Create API key">
+    Click "Create API Key" (or "Get API Key" if this is your first time). Choose the appropriate Google Cloud project or create a new one.
+  </Step>
+  
+  <Step title="Copy the key">
+    Copy the generated API key. It will look like a long string of characters (e.g., `AIzaSyABC123...`).
+  </Step>
+</Steps>
+
+<Warning>
+  Keep your API key secret. Never commit it to version control or share it publicly. Anyone with your key can make API requests that count against your quota.
+</Warning>
+
+## Configuring the API key
+
+<Steps>
+  <Step title="Locate the config template">
+    Navigate to the `src-tauri/src/` directory in your MoodJourney installation. Find the file named `config_template.rs`.
+  </Step>
+  
+  <Step title="Create config.rs">
+    Make a copy of `config_template.rs` and rename it to `config.rs` in the same directory.
+    
+    ```bash
+    cd src-tauri/src
+    cp config_template.rs config.rs
+    ```
+  </Step>
+  
+  <Step title="Insert your API key">
+    Open `config.rs` in a text editor and replace `YOUR_GEMINI_API_KEY_GOES_HERE` with your actual API key:
+    
+    ```rust
+    pub const GEMINI_API_KEY: &str = "AIzaSyABC123YourActualKeyHere";
+    ```
+  </Step>
+  
+  <Step title="Rebuild the application">
+    After saving the file, rebuild MoodJourney to apply the changes:
+    
+    ```bash
+    npm run tauri dev
+    ```
+  </Step>
+</Steps>
+
+<Info>
+  The `config.rs` file is listed in `.gitignore` to prevent accidentally committing your API key. The template file (`config_template.rs`) is safe to commit.
+</Info>
+
+## Verifying your configuration
+
+To confirm your API key is working:
+
+1. Create or edit a journal entry
+2. Save the entry
+3. Look for the "💡 Suggestion" section in the saved entry
+4. If you see meaningful suggestions (not "Suggestion not available"), the API is working
+
+<CodeGroup>
+```text Success
+💡 Suggestion: It's great that you're taking time to reflect. 
+Consider exploring what specific aspects of your day brought 
+you the most joy.
+```
+
+```text API key missing
+💡 Suggestion: Suggestion not available.
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### Error: "AI suggestion failed"
+
+Possible causes:
+- **Invalid API key**: Double-check that you copied the entire key correctly
+- **No internet connection**: Gemini API requires an active internet connection
+- **API quota exceeded**: Check your [Google Cloud Console](https://console.cloud.google.com) for usage limits
+
+### Error: "Failed to get response from Gemini API"
+
+This typically indicates:
+- Network connectivity issues
+- API service outage (check [Google Cloud Status Dashboard](https://status.cloud.google.com/))
+- Firewall or proxy blocking requests
+
+<Warning>
+  If you rebuild the application without creating `config.rs`, the build will fail with a compilation error. Ensure the file exists with a valid API key constant.
+</Warning>
+
+## API usage and costs
+
+Gemini 2.0 Flash has a generous free tier:
+
+- **15 requests per minute (RPM)** - More than sufficient for typical journaling
+- **1 million requests per day (RPD)** - Essentially unlimited for personal use
+- **Free tier**: No cost for usage within these limits
+
+<Note>
+  MoodJourney makes 1-2 API calls per journal entry (one for suggestions, optionally more if using the assistant). Normal usage stays well within free tier limits.
+</Note>
+
+Monitor your usage at [Google AI Studio](https://aistudio.google.com/).
+
+## Security best practices
+
+- Never commit `config.rs` to version control
+- Don't share screenshots containing your API key
+- Rotate your API key periodically from Google AI Studio
+- If you suspect your key is compromised, revoke it immediately and generate a new one
+- Consider using environment variables for production deployments
+
+<Info>
+  For development teams, consider using a shared `.env` file (also gitignored) and loading the key at runtime rather than hardcoding it in Rust.
+</Info>

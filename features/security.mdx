@@ -1,0 +1,316 @@
+---
+title: PIN-based security
+description: Protect your journal with a 4-digit PIN lock for privacy and security
+---
+
+MoodJourney offers optional PIN-based security to protect your personal journal entries from unauthorized access. When enabled, the app locks automatically and requires your PIN to unlock.
+
+## Setting up PIN security
+
+<Steps>
+  <Step title="Open Settings">
+    Click "Settings" in the sidebar navigation.
+  </Step>
+  
+  <Step title="Click 'Set PIN'">
+    In the Security section, click the "Set PIN" button.
+  </Step>
+  
+  <Step title="Enter your 4-digit PIN">
+    Choose a memorable 4-digit PIN code in the dialog that appears.
+  </Step>
+  
+  <Step title="Submit">
+    Click "Submit" to save your PIN. The app will immediately lock.
+  </Step>
+</Steps>
+
+<Info>
+Your PIN is hashed using SHA-256 encryption before being stored, ensuring it cannot be read in plain text even if someone accesses your data files.
+</Info>
+
+## How PIN security works
+
+### PIN storage and encryption
+
+When you create a PIN:
+
+```rust
+// From password.rs:77-81
+fn hash_password(password: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(password.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+```
+
+The PIN is:
+1. Hashed using SHA-256 cryptographic algorithm
+2. Stored in a JSON file in your app data directory
+3. Never stored in plain text
+
+### Lock state management
+
+```rust
+// From password.rs:8-18
+pub struct PasswordData {
+    pub password_hash: Option<String>,  // Hashed PIN
+    pub locked: bool,                    // Current lock state
+}
+```
+
+The app tracks two things:
+- Whether a PIN is set
+- Whether the app is currently locked
+
+## Unlocking the app
+
+When the app is locked:
+
+<Steps>
+  <Step title="Enter your PIN">
+    A dialog appears on app launch asking for your 4-digit PIN.
+  </Step>
+  
+  <Step title="Submit">
+    Click "Unlock" or press Enter to verify your PIN.
+  </Step>
+  
+  <Step title="Access granted">
+    If correct, the app unlocks and you can access your journal. If incorrect, you'll see an error and can try again.
+  </Step>
+</Steps>
+
+<Warning>
+You cannot dismiss the unlock dialog or access the app without entering the correct PIN. The app remains locked until you provide valid credentials.
+</Warning>
+
+### PIN verification process
+
+```rust
+// From password.rs:88-98
+pub fn check_password_internal(&mut self, attempt: &str) -> bool {
+    if let Some(ref hash) = self.password_data.password_hash {
+        let attempt_hash = Self::hash_password(attempt);
+        if *hash == attempt_hash {
+            self.password_data.locked = false;  // Unlock on success
+            self.save();
+            return true;
+        }
+    }
+    false  // Invalid PIN
+}
+```
+
+When you enter a PIN:
+1. Your input is hashed using the same SHA-256 algorithm
+2. The hash is compared to the stored hash
+3. If they match, the app unlocks
+4. If they don't match, access is denied
+
+## Changing your PIN
+
+<Steps>
+  <Step title="Go to Settings">
+    Navigate to Settings while the app is unlocked.
+  </Step>
+  
+  <Step title="Click 'Change PIN'">
+    In the Security section, click "Change PIN".
+  </Step>
+  
+  <Step title="Enter new PIN">
+    Choose a new 4-digit PIN code.
+  </Step>
+  
+  <Step title="Confirm">
+    Click "Submit". The new PIN replaces the old one and the app locks immediately.
+  </Step>
+</Steps>
+
+<Note>
+You don't need to enter your old PIN to change it. Make sure you're the only one with access to the unlocked app.
+</Note>
+
+## Removing PIN protection
+
+If you no longer want PIN security:
+
+<Steps>
+  <Step title="Open Settings (unlocked)">
+    Make sure the app is unlocked and navigate to Settings.
+  </Step>
+  
+  <Step title="Click 'Delete PIN'">
+    In the Security section, click the "Delete PIN" button.
+  </Step>
+  
+  <Step title="Confirm deletion">
+    Confirm that you want to remove PIN protection in the dialog.
+  </Step>
+  
+  <Step title="PIN removed">
+    The PIN is deleted and the app will no longer lock on restart.
+  </Step>
+</Steps>
+
+<Warning>
+Deleting your PIN removes all security from the app. Anyone with access to your device will be able to read your journal entries.
+</Warning>
+
+## Lock behavior
+
+### When does the app lock?
+
+- **On PIN creation** - Immediately after setting up a new PIN
+- **On PIN change** - Immediately after changing your PIN
+- **On app restart** - Every time you close and reopen MoodJourney
+
+### What happens when locked?
+
+While locked:
+- The main interface is hidden behind a loading spinner
+- You cannot access any journal entries
+- You cannot view Insights or chat with the assistant
+- The sidebar and all navigation are disabled
+- Only the unlock dialog is interactive
+
+```javascript
+// From App.jsx:682
+if (isAppLocked) return (
+    <Box sx={{display: 'flex', flexGrow: 1, alignItems: 'center', justifyContent: 'center'}}>
+        <CircularProgress />
+    </Box>
+);
+```
+
+### Manual locking
+
+The app currently does **not** support manual locking while it's running. Once unlocked, it remains unlocked until you:
+- Change the PIN (which locks it)
+- Close and reopen the app
+
+## Security considerations
+
+### What PIN protection does
+
+✅ Prevents casual access to your journal
+✅ Requires authentication on every app launch
+✅ Stores PIN as a cryptographic hash (SHA-256)
+✅ Protects against unauthorized viewing
+
+### What PIN protection does NOT do
+
+❌ Encrypt your journal entry content
+❌ Protect data if someone accesses your file system directly
+❌ Prevent access if someone knows your system password
+❌ Secure data against sophisticated attacks
+
+<Warning>
+PIN security is designed for basic privacy protection, not cryptographic security. Your journal entries are stored as plain text in JSON files on your device. For maximum security, use full-disk encryption on your computer.
+</Warning>
+
+## Lost PIN recovery
+
+### There is no PIN recovery mechanism
+
+If you forget your PIN:
+- You **cannot** reset it from within the app
+- You **cannot** recover it through any built-in feature
+- You will need to manually delete the password file from your system
+
+### Manual PIN reset
+
+<Steps>
+  <Step title="Locate app data">
+    Find your MoodJourney app data directory:
+    - **Windows**: `%APPDATA%/com.moodjourney.app/`
+    - **macOS**: `~/Library/Application Support/com.moodjourney.app/`
+    - **Linux**: `~/.local/share/com.moodjourney.app/`
+  </Step>
+  
+  <Step title="Delete password file">
+    Find and delete the file named `password_state.json`.
+  </Step>
+  
+  <Step title="Restart app">
+    Close and reopen MoodJourney. The app will start without PIN protection.
+  </Step>
+  
+  <Step title="Set new PIN (optional)">
+    If desired, set up a new PIN through Settings.
+  </Step>
+</Steps>
+
+<Warning>
+Deleting the password file bypasses the lock but does not affect your journal entries. Your data remains intact.
+</Warning>
+
+## Best practices
+
+<Accordion title="Choose a memorable PIN">
+  Use a 4-digit code you can remember, but avoid obvious choices like 1234 or your birth year.
+</Accordion>
+
+<Accordion title="Don't share your PIN">
+  Keep your PIN private. Anyone with your PIN can access your entire journal.
+</Accordion>
+
+<Accordion title="Use system security too">
+  PIN protection works best when combined with your operating system's user account security and screen lock features.
+</Accordion>
+
+<Accordion title="Consider disk encryption">
+  For sensitive content, enable full-disk encryption (BitLocker on Windows, FileVault on macOS, LUKS on Linux) in addition to PIN protection.
+</Accordion>
+
+<Accordion title="Regular backups">
+  Back up your journal data regularly. If you need to reset your PIN by deleting the password file, having backups ensures you don't lose any entries during the process.
+</Accordion>
+
+## Technical details
+
+### Password state file structure
+
+```json
+{
+  "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+  "locked": true
+}
+```
+
+- `password_hash`: SHA-256 hash of your PIN (null if no PIN set)
+- `locked`: Boolean indicating current lock state
+
+### Tauri commands
+
+The PIN system exposes several backend commands:
+
+- `is_pin_set_cmd` - Check if a PIN is currently set
+- `is_locked_cmd` - Check if the app is locked
+- `set_new_password_cmd` - Create or change PIN
+- `check_password_attempt_cmd` - Verify PIN attempt
+- `set_locked_explicit_cmd` - Manually set lock state
+- `delete_pin_cmd` - Remove PIN protection
+
+These commands are called from the frontend to manage the security state:
+
+```javascript
+// From App.jsx:139-160
+const checkPinStatus = useCallback(async () => {
+    try {
+        const pinIsCurrentlySet = await invoke('is_pin_set_cmd');
+        setIsPinSet(pinIsCurrentlySet);
+        if (pinIsCurrentlySet) {
+            const appIsLocked = await invoke('is_locked_cmd');
+            if (appIsLocked) {
+                setIsAppLocked(true);
+                setPinAction('unlock');
+                setShowPinModal(true);
+            }
+        }
+    } catch (error) {
+        console.error("Error checking PIN status:", error);
+    }
+}, []);
+```

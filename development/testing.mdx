@@ -1,0 +1,110 @@
+---
+title: Testing
+description: Learn how to run tests for MoodJourney's Rust backend
+---
+
+MoodJourney includes a comprehensive test suite for the Rust backend. Tests are organized within the source code using Rust's built-in testing framework.
+
+## Test coverage
+
+The test suite covers:
+
+- **Database operations** (`db.rs`) - Tests for journal entries, chat sessions, and message storage
+- **Password management** (`password.rs`) - Tests for hashing, verification, and security
+- **Emotion analysis** (`emotion.rs`) - Tests for sentiment classification and mood tracking
+- **Suggestion generation** (`suggestion.rs`) - Tests for AI-powered journal prompts
+
+## Running tests
+
+<Note>
+On Windows, use a Developer Command Prompt for VS 2022 to run tests. This ensures all build tools are properly configured.
+</Note>
+
+<Steps>
+  <Step title="Navigate to the Rust backend">
+    Open a terminal and navigate to the `src-tauri` directory:
+    
+    ```bash
+    cd src-tauri
+    ```
+  </Step>
+  
+  <Step title="Run the test suite">
+    Execute all tests using Cargo:
+    
+    ```bash
+    cargo test
+    ```
+    
+    This will compile the project in test mode and run all unit tests.
+  </Step>
+</Steps>
+
+## Test options
+
+Cargo provides several options for running tests:
+
+<CodeGroup>
+```bash Run all tests
+cargo test
+```
+
+```bash Run tests with output
+cargo test -- --nocapture
+```
+
+```bash Run specific test
+cargo test test_name
+```
+
+```bash Run tests in a specific module
+cargo test module_name::
+```
+</CodeGroup>
+
+## Test organization
+
+Tests are organized using Rust's `#[cfg(test)]` attribute and `#[test]` macro:
+
+- **Database tests** (db.rs:312) - Test database initialization, CRUD operations, and chat functionality
+- **Password tests** (password.rs:164) - Test hashing algorithms and password verification
+- **Emotion tests** (emotion.rs:98) - Test sentiment analysis and emotion classification
+- **Suggestion tests** (suggestion.rs:177) - Test AI prompt generation
+
+<Info>
+All tests use isolated test databases with unique file paths to prevent interference between test cases. Test databases are automatically cleaned up after each test.
+</Info>
+
+## Example test output
+
+When running `cargo test`, you'll see output similar to:
+
+```
+running 15 tests
+test db::tests::test_create_and_get_journal_entry ... ok
+test db::tests::test_create_chat_session ... ok
+test password::tests::test_hash_password ... ok
+test emotion::tests::test_analyze_sentiment ... ok
+...
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured
+```
+
+## Troubleshooting
+
+If tests fail to compile or run:
+
+1. Ensure all dependencies are installed (see installation guide)
+2. Verify Rust and Cargo are up to date: `rustup update`
+3. Clean the build cache: `cargo clean`
+4. Rebuild and test: `cargo test`
+
+<Note>
+Some tests may require ML models to be downloaded. Run the model download scripts before testing:
+
+```bash
+cd scripts
+python download_model_dictation.py
+python download_model_emotion.py
+```
+</Note>

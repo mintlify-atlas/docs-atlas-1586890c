@@ -1,0 +1,403 @@
+---
+title: Entry operations
+description: Create, read, update, and delete journal entries with image support
+---
+
+Manage journal entries in MoodJourney's SQLite database. All entry operations support optional image attachments and password protection.
+
+## create_entry
+
+Creates a new journal entry with the current local date. If an entry already exists for today, this command will fail.
+
+### Function signature
+
+```rust
+fn create_entry(
+    app_db_path: State<'_, PathBuf>,
+    title: &str, 
+    content: Option<&str>, 
+    password: Option<&str>, 
+    image: Option<&str>
+) -> Result<(), String>
+```
+
+### Parameters
+
+<ParamField path="title" type="string" required>
+  The title of the journal entry
+</ParamField>
+
+<ParamField path="content" type="string | null">
+  The main content of the entry. Typically includes user text, detected emotion, and AI suggestions formatted as:
+  ```
+  {user_text}
+  
+  🧠 Emotion: {emotion}
+  
+  💡 Suggestion: {suggestion}
+  ```
+</ParamField>
+
+<ParamField path="password" type="string | null">
+  Optional password for entry protection (not currently used in UI)
+</ParamField>
+
+<ParamField path="image" type="string | null">
+  Optional relative path to an image file (e.g., `journal_images/uuid.png`)
+</ParamField>
+
+### Returns
+
+<ResponseField name="success" type="void">
+  Returns nothing on success
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Returns error message if entry creation fails (e.g., duplicate date)
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+const contentToSave = `${currentEntryText}\n\n🧠 Emotion: ${classifiedEmotion}\n\n💡 Suggestion: ${generatedSuggestion}`;
+
+try {
+  await invoke("create_entry", {
+    title: "Journal Entry",
+    content: contentToSave,
+    password: null,
+    image: null
+  });
+  console.log("Entry created successfully!");
+} catch (error) {
+  console.error("Failed to create entry:", error);
+}
+```
+
+### Implementation details
+
+- Automatically sets the date to the current local date (`YYYY-MM-DD` format)
+- Prevents duplicate entries for the same date
+- Delegates to `db::create_entry_with_now_in_db()` in `db.rs:159`
+
+---
+
+## read_entries
+
+Retrieves all journal entries from the database, sorted by date in descending order (newest first).
+
+### Function signature
+
+```rust
+fn read_entries(
+    app_db_path: State<'_, PathBuf>
+) -> Result<Vec<Entry>, String>
+```
+
+### Parameters
+
+No parameters required.
+
+### Returns
+
+<ResponseField name="entries" type="Entry[]">
+  Array of entry objects sorted by date (newest first). Each entry contains:
+  
+  <ResponseField name="date" type="string">
+    Entry date in `YYYY-MM-DD` format
+  </ResponseField>
+  
+  <ResponseField name="title" type="string | null">
+    Entry title
+  </ResponseField>
+  
+  <ResponseField name="content" type="string | null">
+    Full entry content including emotion and suggestion metadata
+  </ResponseField>
+  
+  <ResponseField name="password" type="string | null">
+    Entry password (if set)
+  </ResponseField>
+  
+  <ResponseField name="image" type="string | null">
+    Relative path to attached image
+  </ResponseField>
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+try {
+  const entries = await invoke("read_entries");
+  console.log(`Found ${entries.length} entries`);
+  
+  entries.forEach(entry => {
+    console.log(`${entry.date}: ${entry.title}`);
+  });
+} catch (error) {
+  console.error("Failed to load entries:", error);
+}
+```
+
+### Implementation details
+
+- Returns entries in descending date order (newest first) via SQL `ORDER BY date DESC`
+- See `db.rs:109` for the database query implementation
+
+---
+
+## get_entry
+
+Retrieves a specific journal entry by date.
+
+### Function signature
+
+```rust
+fn get_entry(
+    app_db_path: State<'_, PathBuf>,
+    date: &str
+) -> Result<Option<Entry>, String>
+```
+
+### Parameters
+
+<ParamField path="date" type="string" required>
+  The date of the entry to retrieve in `YYYY-MM-DD` format
+</ParamField>
+
+### Returns
+
+<ResponseField name="entry" type="Entry | null">
+  The entry object if found, or `null` if no entry exists for the given date
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+try {
+  const entry = await invoke("get_entry", { date: "2025-04-20" });
+  
+  if (entry) {
+    console.log("Entry found:", entry.title);
+  } else {
+    console.log("No entry for this date");
+  }
+} catch (error) {
+  console.error("Error fetching entry:", error);
+}
+```
+
+---
+
+## update_entry
+
+Updates an existing journal entry. Also handles cleanup of old image files when the image is changed.
+
+### Function signature
+
+```rust
+fn update_entry(
+    app_handle: AppHandle, 
+    app_db_path: State<'_, PathBuf>,
+    date: &str,
+    new_title: &str, 
+    new_content: Option<&str>,
+    new_password: Option<&str>,
+    new_image: Option<&str>,
+) -> Result<(), String>
+```
+
+### Parameters
+
+<ParamField path="date" type="string" required>
+  The date of the entry to update in `YYYY-MM-DD` format
+</ParamField>
+
+<ParamField path="newTitle" type="string" required>
+  The updated title
+</ParamField>
+
+<ParamField path="newContent" type="string | null">
+  The updated content
+</ParamField>
+
+<ParamField path="newPassword" type="string | null">
+  The updated password
+</ParamField>
+
+<ParamField path="newImage" type="string | null">
+  The updated image path. Set to empty string or `null` to remove the image.
+</ParamField>
+
+### Returns
+
+<ResponseField name="success" type="void">
+  Returns nothing on success
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+const updatedContent = `${editedText}\n\n🧠 Emotion: ${emotion}\n\n💡 Suggestion: ${suggestion}`;
+
+try {
+  await invoke("update_entry", {
+    date: "2025-04-20",
+    newTitle: "Updated Title",
+    newContent: updatedContent,
+    newPassword: null,
+    newImage: "journal_images/new-image-uuid.png"
+  });
+  console.log("Entry updated!");
+} catch (error) {
+  console.error("Update failed:", error);
+}
+```
+
+### Implementation details
+
+- Automatically deletes old image files from disk when a new image is uploaded or the image is removed
+- Image cleanup logic is in `main.rs:108-156`
+- Only updates the entry if it exists (no error if entry not found)
+
+<Warning>
+When changing an entry's image, the old image file is permanently deleted from the file system to prevent orphaned files.
+</Warning>
+
+---
+
+## delete_entry
+
+Deletes a journal entry and its associated image file (if present).
+
+### Function signature
+
+```rust
+fn delete_entry(
+    app_handle: AppHandle, 
+    app_db_path: State<'_, PathBuf>,
+    date: &str
+) -> Result<(), String>
+```
+
+### Parameters
+
+<ParamField path="date" type="string" required>
+  The date of the entry to delete in `YYYY-MM-DD` format
+</ParamField>
+
+### Returns
+
+<ResponseField name="success" type="void">
+  Returns nothing on success
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+try {
+  await invoke("delete_entry", { date: "2025-04-20" });
+  console.log("Entry deleted successfully");
+} catch (error) {
+  console.error("Delete failed:", error);
+}
+```
+
+### Implementation details
+
+- Retrieves the entry first to check for an attached image
+- Deletes the image file from disk if present (see `main.rs:163-195`)
+- Then removes the entry from the database
+
+<Warning>
+This operation is irreversible. Both the database entry and any associated image file are permanently deleted.
+</Warning>
+
+---
+
+## upload_image_file
+
+Uploads an image file for attachment to a journal entry. The image is saved to the app's local data directory with a unique filename.
+
+### Function signature
+
+```rust
+async fn upload_image_file(
+    app_handle: AppHandle, 
+    file_data_base64: String, 
+    original_file_name: String
+) -> Result<String, String>
+```
+
+### Parameters
+
+<ParamField path="fileDataBase64" type="string" required>
+  Base64-encoded image data (without the data URL prefix)
+</ParamField>
+
+<ParamField path="originalFileName" type="string" required>
+  The original filename including extension (e.g., `photo.jpg`)
+</ParamField>
+
+### Returns
+
+<ResponseField name="relativePath" type="string">
+  The relative path to the saved image (e.g., `journal_images/uuid.png`) that can be passed to `create_entry` or `update_entry`
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+// Read file as base64
+const reader = new FileReader();
+const base64String = await new Promise((resolve, reject) => {
+  reader.onload = () => {
+    const result = reader.result;
+    if (typeof result === 'string') {
+      resolve(result.split(',')[1]); // Remove data URL prefix
+    } else {
+      reject(new Error("Failed to read file as data URL"));
+    }
+  };
+  reader.onerror = error => reject(error);
+  reader.readAsDataURL(file);
+});
+
+// Upload the image
+try {
+  const imagePath = await invoke("upload_image_file", {
+    fileDataBase64: base64String,
+    originalFileName: file.name
+  });
+  
+  console.log("Image uploaded to:", imagePath);
+  // Use imagePath in create_entry or update_entry
+} catch (error) {
+  console.error("Upload failed:", error);
+}
+```
+
+### Implementation details
+
+- Saves images to `{app_data_dir}/journal_images/`
+- Generates unique filenames using UUIDs to prevent collisions
+- Preserves the original file extension (sanitized to alphanumeric only)
+- Defaults to `.png` extension if none is provided or invalid
+- Creates the `journal_images` directory if it doesn't exist
+- See implementation in `main.rs:198-230`
+
+<Note>
+The returned path is relative to the app's local data directory. The full path is constructed internally when loading images.
+</Note>

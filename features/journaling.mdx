@@ -1,0 +1,138 @@
+---
+title: Journal entry creation and management
+description: Create, edit, and manage your daily journal entries with MoodJourney's intuitive interface
+---
+
+MoodJourney provides a streamlined interface for capturing your thoughts and emotions through journal entries. Each entry is automatically enhanced with AI-powered sentiment analysis and personalized suggestions.
+
+## Creating a new journal entry
+
+When you first open MoodJourney, you'll see the main journaling interface with a personalized greeting based on the time of day.
+
+<Steps>
+  <Step title="Start writing">
+    Click into the text field and begin typing your thoughts. The editor supports multi-line entries and automatically adjusts to fit your content.
+  </Step>
+  
+  <Step title="Add content">
+    Write freely about your day, feelings, or any thoughts you want to capture. There's no minimum or maximum length requirement.
+  </Step>
+  
+  <Step title="Save your entry">
+    Click the send icon button (or press Enter while holding Shift) to save your entry. MoodJourney will automatically analyze the sentiment and generate suggestions.
+  </Step>
+</Steps>
+
+<Note>
+Each journal entry is automatically saved with the current date. If you create multiple entries on the same day, the new content will update the existing entry for that date.
+</Note>
+
+## What happens when you save
+
+When you save an entry, MoodJourney performs several automated processes:
+
+1. **Emotion classification** - Your text is analyzed using the DistilRoBERTa model to detect emotions (joy, sadness, anger, fear, disgust, surprise, neutral)
+2. **AI suggestions** - The Gemini AI generates three personalized suggestions based on your entry content
+3. **Entry storage** - Your entry is saved locally with the detected emotion and suggestions appended
+
+```javascript
+// Example of what gets saved (from App.jsx:443)
+const contentToSave = `${currentEntryText}\n\n🧠 Emotion: ${classifiedEmotion}\n\n💡 Suggestion: ${generatedSuggestion}`;
+```
+
+The interface will briefly flash with a color corresponding to the detected emotion, providing immediate visual feedback.
+
+## Viewing your entries
+
+All your journal entries are accessible from the sidebar drawer:
+
+<Tabs>
+  <Tab title="Recent entries">
+    The drawer shows your most recent entries by default, displaying the date and a preview of the content.
+  </Tab>
+  
+  <Tab title="View all">
+    Toggle "Show All Entries" to see your complete journal history, sorted by date (newest first).
+  </Tab>
+</Tabs>
+
+Click on any entry in the drawer to open it in the main viewing area.
+
+## Editing existing entries
+
+<Steps>
+  <Step title="Select an entry">
+    Click on an entry from the sidebar to view it in the main area.
+  </Step>
+  
+  <Step title="Enter edit mode">
+    Click the "Edit Entry" button at the bottom of the entry view.
+  </Step>
+  
+  <Step title="Make your changes">
+    Modify the text in the editing area. The editor shows only your original content without the emotion and suggestion annotations.
+  </Step>
+  
+  <Step title="Save changes">
+    Click "Save Changes" to update the entry. The emotion and suggestions will be re-analyzed based on your updated content.
+  </Step>
+</Steps>
+
+<Warning>
+When you edit an entry, the emotion classification and AI suggestions are regenerated. Previous analysis results are not preserved.
+</Warning>
+
+## Entry format and structure
+
+Each entry consists of:
+
+- **Main content** - Your original journal text
+- **Emotion tag** - Automatically detected emotional state
+- **AI feedback** - Three suggestions broken down into actionable insights
+
+The emotion and suggestions are displayed separately in the right sidebar when viewing an entry, keeping your original text clean and readable.
+
+## Deleting entries
+
+To remove a journal entry:
+
+1. Select the entry you want to delete
+2. Click the "Delete Entry" button (red, with trash icon)
+3. Confirm the deletion in the dialog
+
+<Warning>
+Deletion is permanent and cannot be undone. Make sure you want to remove the entry before confirming.
+</Warning>
+
+## Adding images to entries
+
+You can attach images to your journal entries for a richer journaling experience:
+
+1. Select an entry from your journal
+2. Click the "Upload Image" button
+3. Choose an image file from your device (PNG, JPG, etc.)
+4. The image will be stored locally and associated with that entry
+
+<Tip>
+Once you've added an image, you can use it as a background for that entry's view or enable Monet theming, which extracts colors from the image to customize the interface.
+</Tip>
+
+## Entry organization
+
+- **Date-based** - One entry per day, identified by date (YYYY-MM-DD format)
+- **Automatic sorting** - Entries are always sorted newest first
+- **Persistent storage** - All entries are stored locally on your device in JSON format
+
+## Best practices
+
+<Accordion title="Write regularly">
+  Consistency helps build the habit. Even brief daily entries can provide valuable insights over time.
+</Accordion>
+
+<Accordion title="Be authentic">
+  The sentiment analysis and suggestions work best when you write naturally and honestly about your feelings.
+</Accordion>
+
+<Accordion title="Review your history">
+  Use the Insights page to track emotional trends and patterns across multiple entries.
+</Accordion>

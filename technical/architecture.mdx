@@ -1,0 +1,141 @@
+---
+title: Architecture
+description: System architecture overview of MoodJourney's Tauri-based application structure
+---
+
+MoodJourney is built using the Tauri framework, which combines a Rust backend with a React frontend to create a lightweight, secure desktop application.
+
+## Tech stack
+
+The application uses a hybrid architecture that leverages the strengths of both native and web technologies:
+
+### Backend (Rust)
+
+- **Tauri 2.5.0**: Desktop application framework providing native OS integration
+- **Rusqlite 0.35**: SQLite database interface for local data persistence
+- **rust-bert 0.23.0**: Machine learning library for emotion classification
+- **whisper-rs 0.14.2**: Speech-to-text transcription using Whisper.cpp
+- **Tokio**: Async runtime for concurrent operations
+- **Reqwest**: HTTP client for AI suggestion API calls
+
+### Frontend (React)
+
+- **React 18.3.1**: UI component library
+- **Material-UI (MUI) 7.1.0**: Component framework for consistent design
+- **Recharts 2.15.3**: Data visualization for mood trend charts
+- **Day.js**: Date manipulation and formatting
+- **Vite**: Fast build tool and development server
+
+## Application architecture
+
+The application follows a client-server architecture within a single desktop application:
+
+```
+┌─────────────────────────────────────────────────┐
+│               React Frontend                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │   UI     │  │  Charts  │  │  Forms   │     │
+│  └──────────┘  └──────────┘  └──────────┘     │
+└─────────────────────────────────────────────────┘
+                    ↕ IPC Commands
+┌─────────────────────────────────────────────────┐
+│              Tauri Rust Backend                 │
+│  ┌──────────────────────────────────────────┐  │
+│  │         Command Handlers                 │  │
+│  │  • create_entry  • classify_emotion     │  │
+│  │  • read_entries  • perform_dictation    │  │
+│  │  • update_entry  • generate_suggestion  │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │ Database │  │ Emotion  │  │Dictation │     │
+│  │  Module  │  │  Model   │  │  Model   │     │
+│  └──────────┘  └──────────┘  └──────────┘     │
+└─────────────────────────────────────────────────┘
+                    ↕
+┌─────────────────────────────────────────────────┐
+│          Local Storage & Resources              │
+│  • SQLite Database (entries.db)                 │
+│  • AI Models (emotion, dictation)               │
+│  • Journal Images                               │
+│  • Password Storage                             │
+└─────────────────────────────────────────────────┘
+```
+
+## Core modules
+
+### Main application (main.rs:458)
+
+The entry point initializes all components:
+
+1. **Password protection**: Loads PIN/password state from config
+2. **Database**: Initializes SQLite database at `app_data_dir/entries.db`
+3. **Image storage**: Creates `journal_images` directory for attachments
+4. **AI models**: Loads emotion and dictation models from bundled resources
+5. **Command handlers**: Registers Tauri commands for frontend IPC
+
+<Note>
+The application uses Tauri's state management to share models and database connections across commands, wrapped in `Arc<Mutex<>>` for thread safety.
+</Note>
+
+### Module organization
+
+- **db.rs**: Database operations and schema definitions
+- **emotion.rs**: Emotion classification using DistilRoBERTa
+- **dictation.rs**: Audio transcription using Whisper.cpp
+- **suggestion.rs**: AI-powered journaling suggestions via Gemini API
+- **password.rs**: PIN-based security for journal entries
+- **config.rs**: Application configuration management
+
+## IPC communication
+
+The frontend communicates with the backend through Tauri commands using a type-safe IPC mechanism:
+
+```rust
+#[command]
+fn create_entry(
+    app_db_path: State<'_, PathBuf>,
+    title: &str,
+    content: Option<&str>,
+    password: Option<&str>,
+    image: Option<&str>
+) -> Result<(), String> {
+    db::create_entry_with_now_in_db(
+        &app_db_path, title, content, password, image
+    ).map_err(|e| e.to_string())
+}
+```
+
+Commands are automatically serialized/deserialized using Serde, providing type safety between Rust and TypeScript.
+
+## State management
+
+The application manages several pieces of shared state:
+
+- **PathBuf**: Database file path
+- **AppEmotionModel**: Emotion classification model wrapped in `Arc<SafeEmotionModelWrapper>`
+- **AppDictationModel**: Dictation model wrapped in `Arc<SafeDictationModelWrapper>`
+- **Mutex&lt;PasswordState&gt;**: Thread-safe password/PIN state
+
+<Info>
+Models are loaded once at startup and reused across all commands to avoid expensive re-initialization.
+</Info>
+
+## Resource bundling
+
+AI models are bundled with the application and resolved at runtime:
+
+```rust
+let resource_path = app.path()
+    .resolve("models", BaseDirectory::Resource)
+    .expect("Failed to resolve 'models' resource directory");
+```
+
+The application checks bundled resources first, then falls back to development paths when running in debug mode.
+
+## Security considerations
+
+- **Local-first**: All data stored locally in SQLite, no cloud sync
+- **Optional encryption**: Individual entries can be password-protected
+- **PIN protection**: Optional PIN lock for the entire application
+- **File system isolation**: Images stored in app-specific directories
+- **API key security**: Gemini API key loaded from environment/config (not hardcoded)

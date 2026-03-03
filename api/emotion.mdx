@@ -1,0 +1,131 @@
+---
+title: Emotion classification
+description: Classify the emotional tone of journal entries using a local ML model
+---
+
+MoodJourney uses a fine-tuned RoBERTa model to classify the emotional sentiment of journal text into one of seven categories: anger, disgust, fear, joy, neutral, sadness, or surprise.
+
+## classify_emotion
+
+Analyzes text and returns the dominant emotion detected. The model runs locally on the user's device using the `rust-bert` library.
+
+### Function signature
+
+```rust
+fn classify_emotion(
+    text: String,
+    emotion_model_state: tauri::State<'_, crate::AppEmotionModel>, 
+) -> Result<String, String>
+```
+
+### Parameters
+
+<ParamField path="text" type="string" required>
+  The text to analyze for emotional content. Must not be empty or whitespace-only.
+</ParamField>
+
+### Returns
+
+<ResponseField name="emotion" type="string">
+  One of the following emotion labels:
+  - `anger`
+  - `disgust`
+  - `fear`
+  - `joy`
+  - `neutral`
+  - `sadness`
+  - `surprise`
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if classification fails (e.g., empty input, model error)
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+
+const journalText = "I had such a wonderful day! Spent the afternoon hiking with friends.";
+
+try {
+  const emotion = await invoke("classify_emotion", { text: journalText });
+  console.log("Detected emotion:", emotion); // Output: "joy"
+} catch (error) {
+  console.error("Classification failed:", error);
+}
+```
+
+### Typical workflow
+
+In the app's main save flow (see `App.jsx:434-466`), emotion classification happens before saving an entry:
+
+```javascript
+let classifiedEmotion = "unknown";
+
+try {
+  classifiedEmotion = await invoke("classify_emotion", { text: currentEntryText });
+  setLastDetectedEmotion(classifiedEmotion);
+} catch (classifyError) {
+  // Continue with "unknown" emotion if classification fails
+  console.warn("Emotion classification failed");
+}
+
+// Emotion is embedded in the entry content
+const contentToSave = `${currentEntryText}\n\n🧠 Emotion: ${classifiedEmotion}\n\n💡 Suggestion: ${generatedSuggestion}`;
+```
+
+### Implementation details
+
+- **Model**: Fine-tuned `RoBERTa` model for emotion classification
+- **Model location**: Bundled in `src-tauri/models/emotion/` with:
+  - `config.json` - Model configuration
+  - `vocab.json` - Vocabulary mapping
+  - `merges.txt` - Byte-pair encoding merges
+  - `model.safetensors` - Model weights
+- **Device**: Runs on CPU (configured in `emotion.rs:39`)
+- **Initialization**: Model is loaded once at app startup and managed as shared state
+- **Performance**: Typically completes in less than 1 second for journal-length text
+
+### Error handling
+
+<Warning>
+The function will fail if:
+- Input text is empty or contains only whitespace
+- Model files are missing or corrupted
+- Model inference encounters an error
+</Warning>
+
+```javascript
+try {
+  const emotion = await invoke("classify_emotion", { text: "" });
+} catch (error) {
+  // Error: "Input text for emotion classification cannot be empty."
+}
+```
+
+### Model confidence
+
+While the command only returns the top label, internally the model also generates a confidence score. This is logged but not exposed to the frontend:
+
+```rust
+// From emotion.rs:71
+log::info!("Classified emotion: '{}' with confidence {}", label.text, label.score);
+```
+
+### Testing
+
+The model's behavior is validated with unit tests in `emotion.rs:98-193`:
+
+```rust
+#[test]
+fn test_emotion_classification_sadness_example() {
+    let text = "I feel so lonely and down today.";
+    let result = emotion_model.classify(text);
+    assert_eq!(result.unwrap().to_lowercase(), "sadness");
+}
+```
+
+<Note>
+Emotion classification runs entirely offline. No user data is sent to external services.
+</Note>

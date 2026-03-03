@@ -1,0 +1,353 @@
+---
+title: AI models
+description: Local AI models for emotion classification and voice dictation
+---
+
+MoodJourney uses two AI models that run entirely on-device for privacy and offline functionality:
+
+1. **DistilRoBERTa** for emotion classification
+2. **Whisper.cpp** for voice-to-text dictation
+
+## Emotion classification
+
+### Model details
+
+- **Model**: `j-hartmann/emotion-english-distilroberta-base`
+- **Type**: Fine-tuned DistilRoBERTa (distilled RoBERTa)
+- **Framework**: rust-bert (PyTorch bindings for Rust)
+- **Size**: ~80 MB (model.safetensors)
+- **Device**: CPU-only inference
+
+<Info>
+DistilRoBERTa is a distilled version of RoBERTa that's 40% smaller and 60% faster while retaining 95% of the performance.
+</Info>
+
+### Emotion labels
+
+The model classifies text into seven emotion categories:
+
+- anger
+- disgust
+- fear
+- joy
+- neutral
+- sadness
+- surprise
+
+Each prediction includes a confidence score (0-1) indicating the model's certainty.
+
+### Implementation (emotion.rs)
+
+#### Model loading (emotion.rs:13)
+
+```rust
+pub fn new(model_base_path: PathBuf) -> Result<Self> {
+    let config_path = model_base_path.join("config.json");
+    let vocab_path = model_base_path.join("vocab.json");
+    let merges_path = model_base_path.join("merges.txt");
+    let model_weights_path = model_base_path.join("model.safetensors");
+
+    // Validate all files exist
+    if !config_path.exists() {
+        return Err(anyhow!("Emotion model config.json not found"));
+    }
+    // ... validate other files
+
+    let classification_config = SequenceClassificationConfig {
+        model_type: ModelType::Roberta,
+        model_resource: rust_bert::pipelines::common::ModelResource::Torch(
+            Box::new(LocalResource { local_path: model_weights_path })
+        ),
+        config_resource: Box::new(LocalResource { local_path: config_path }),
+        vocab_resource: Box::new(LocalResource { local_path: vocab_path }),
+        merges_resource: Some(Box::new(LocalResource { local_path: merges_path })),
+        device: Device::Cpu,
+        ..Default::default()
+    };
+
+    let model = SequenceClassificationModel::new(classification_config)?;
+    Ok(Self { model })
+}
+```
+
+#### Classification (emotion.rs:60)
+
+```rust
+pub fn classify(&self, text: &str) -> Result<String> {
+    if text.trim().is_empty() {
+        return Err(anyhow!("Input text cannot be empty"));
+    }
+
+    let input = [text.trim()];
+    let output = self.model.predict(&input);
+
+    if let Some(label) = output.get(0) {
+        Ok(label.text.clone())
+    } else {
+        Err(anyhow!("No output from model"))
+    }
+}
+```
+
+#### Tauri command (emotion.rs:80)
+
+```rust
+#[tauri::command]
+pub fn classify_emotion(
+    text: String,
+    emotion_model_state: tauri::State<'_, crate::AppEmotionModel>,
+) -> Result<String, String> {
+    let model_wrapper_arc = &emotion_model_state.inner().0;
+    let emotion_model_in_wrapper = &model_wrapper_arc.0;
+
+    match emotion_model_in_wrapper.classify(&text) {
+        Ok(emotion) => Ok(emotion),
+        Err(e) => Err(format!("Failed to classify emotion: {}", e))
+    }
+}
+```
+
+<Note>
+The model is wrapped in `Arc<SafeEmotionModelWrapper>` to enable safe sharing across threads, as the rust-bert model types don't implement `Send` and `Sync` by default.
+</Note>
+
+### Model files
+
+The emotion model requires these files in `src-tauri/models/emotion/`:
+
+- `config.json`: Model architecture configuration
+- `vocab.json`: Tokenizer vocabulary (RoBERTa tokenizer)
+- `merges.txt`: Byte-pair encoding merges for tokenization
+- `model.safetensors`: Model weights in SafeTensors format
+
+## Voice dictation
+
+### Model details
+
+- **Model**: `ggml-tiny.en-q5_1.bin`
+- **Type**: Whisper Tiny (English-only, quantized)
+- **Framework**: whisper-rs (Whisper.cpp bindings for Rust)
+- **Size**: ~31 MB
+- **Quantization**: Q5_1 (5-bit quantization with 1-bit scale)
+- **Device**: CPU inference
+
+<Info>
+Whisper Tiny is the smallest Whisper model variant, optimized for speed. The Q5_1 quantization reduces the size from ~75 MB to ~31 MB with minimal accuracy loss.
+</Info>
+
+### Implementation (dictation.rs)
+
+#### Model loading (dictation.rs:54)
+
+```rust
+pub fn new(app_handle: &AppHandle, model_name: &str) -> Result<Self> {
+    // Resolve model path from bundled resources
+    let model_path = get_model_path(app_handle, model_name)?;
+
+    let model_path_str = model_path.to_str()
+        .ok_or_else(|| anyhow!("Invalid UTF-8 in model path"))?;
+
+    // Load Whisper model
+    let ctx = WhisperContext::new_with_params(
+        model_path_str,
+        WhisperContextParameters::default()
+    )?;
+
+    Ok(Self { ctx })
+}
+```
+
+The `get_model_path` function (dictation.rs:7) checks:
+
+1. **Bundled resources**: `models/dictation/{model_name}` in app bundle
+2. **Development path**: `src-tauri/models/dictation/{model_name}` for local dev
+
+#### Transcription (dictation.rs:77)
+
+```rust
+pub fn transcribe(&self, audio_file_path_str: &str) -> Result<String> {
+    // Create transcription state
+    let mut state = self.ctx.create_state()?;
+
+    // Load WAV file
+    let mut reader = hound::WavReader::open(audio_file_path)?;
+    let wav_spec = reader.spec();
+
+    // Validate audio format
+    if wav_spec.sample_rate != 16000 {
+        return Err(anyhow!("Whisper requires 16kHz sample rate"));
+    }
+    if wav_spec.channels != 1 {
+        return Err(anyhow!("Whisper requires mono audio"));
+    }
+
+    // Convert i16 samples to f32
+    let samples_i16: Vec<i16> = reader.samples::<i16>().collect()?;
+    let mut audio_data_f32: Vec<f32> = vec![0.0; samples_i16.len()];
+    convert_integer_to_float_audio(&samples_i16, &mut audio_data_f32)?;
+
+    // Configure transcription
+    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    params.set_n_threads(4);
+    params.set_language(Some("en"));
+
+    // Run transcription
+    state.full(params, &audio_data_f32[..])?;
+
+    // Extract text from segments
+    let num_segments = state.full_n_segments()?;
+    let mut full_text = String::new();
+    for i in 0..num_segments {
+        let segment_text = state.full_get_segment_text(i)?;
+        full_text.push_str(&segment_text);
+    }
+
+    Ok(full_text.trim().to_string())
+}
+```
+
+<Accordion title="Audio format requirements">
+Whisper expects specific audio format:
+
+- **Sample rate**: 16,000 Hz (16 kHz)
+- **Channels**: 1 (mono)
+- **Format**: 16-bit signed integer PCM
+- **Container**: WAV file
+
+The frontend must ensure audio is converted to this format before sending to the backend.
+</Accordion>
+
+#### Tauri command (dictation.rs:156)
+
+```rust
+#[tauri::command]
+pub async fn perform_dictation_cmd(
+    audio_file_path: String,
+    dictation_model_state: tauri::State<'_, crate::AppDictationModel>,
+) -> Result<String, String> {
+    let model_arc = dictation_model_state.inner().0.clone();
+
+    // Run transcription in blocking task
+    tokio::task::spawn_blocking(move || {
+        model_arc.0.transcribe(&audio_file_path)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| e.to_string())
+}
+```
+
+<Note>
+Transcription runs in a `spawn_blocking` task to avoid blocking the async runtime, as Whisper inference is CPU-intensive.
+</Note>
+
+## Downloading models
+
+Models must be downloaded before building the application using Python scripts:
+
+### Emotion model (scripts/download_model_emotion.py)
+
+```python
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from pathlib import Path
+
+emotion_model_name = "j-hartmann/emotion-english-distilroberta-base"
+emotion_target_dir = Path(__file__).resolve().parent.parent / "src-tauri" / "models" / "emotion"
+
+# Download and save
+tokenizer_emotion = AutoTokenizer.from_pretrained(emotion_model_name)
+model_emotion = AutoModelForSequenceClassification.from_pretrained(emotion_model_name)
+
+emotion_target_dir.mkdir(parents=True, exist_ok=True)
+
+tokenizer_emotion.save_pretrained(emotion_target_dir)
+model_emotion.save_pretrained(emotion_target_dir)
+```
+
+**Requirements**:
+```bash
+pip install transformers torch
+python scripts/download_model_emotion.py
+```
+
+### Dictation model (scripts/download_model_dictation.py)
+
+```python
+import requests
+from pathlib import Path
+
+def download_model_dictation():
+    model_url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin?download=true"
+    target_dir = Path("./src-tauri/models/dictation")
+    destination_path = target_dir / "ggml-tiny.en-q5_1.bin"
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # Download with progress bar
+    response = requests.get(model_url, stream=True, timeout=300)
+    response.raise_for_status()
+    # ... save to file
+```
+
+**Requirements**:
+```bash
+pip install requests
+python scripts/download_model_dictation.py
+```
+
+<Note>
+Both scripts check if models already exist and skip downloading if present. They must be run before `tauri build` to bundle models into the application.
+</Note>
+
+## Model initialization
+
+Models are loaded once at application startup in `main.rs:516`:
+
+```rust
+// Load emotion model
+let emotion_model_base_path = resource_path.join("emotion");
+let emotion_model_instance = EmotionModel::new(emotion_model_base_path)
+    .expect("Failed to initialize EmotionModel");
+let safe_emotion_model_wrapper = SafeEmotionModelWrapper(emotion_model_instance);
+app.manage(AppEmotionModel(Arc::new(safe_emotion_model_wrapper)));
+
+// Load dictation model
+let dictation_model_name = "ggml-tiny.en-q5_1.bin";
+let dictation_model_instance = DictationModel::new(&app_handle, dictation_model_name)
+    .expect("Failed to initialize DictationModel");
+let safe_dictation_model_wrapper = SafeDictationModelWrapper(dictation_model_instance);
+app.manage(AppDictationModel(Arc::new(safe_dictation_model_wrapper)));
+```
+
+This ensures models are ready immediately and shared across all commands for optimal performance.
+
+## Performance considerations
+
+### Emotion classification
+
+- **First inference**: ~500-1000ms (model warmup)
+- **Subsequent inferences**: ~50-200ms per text
+- **Memory**: ~200-300 MB loaded
+
+### Voice dictation
+
+- **Loading time**: ~100-300ms
+- **Transcription speed**: ~5-10x realtime (30s audio → 3-6s processing)
+- **Memory**: ~100-150 MB loaded
+
+<Info>
+Both models run on CPU for maximum compatibility. GPU acceleration is not currently implemented but could be added via `tch` device configuration.
+</Info>
+
+## Privacy and offline capability
+
+All AI processing happens locally:
+
+- ✅ No audio or journal text sent to external servers
+- ✅ Works completely offline
+- ✅ No API keys required for core features
+- ✅ Models bundled with the application
+
+<Note>
+The AI suggestion feature does use the Gemini API for generating contextual advice, which requires an internet connection and API key. This is optional and distinct from emotion/dictation features.
+</Note>

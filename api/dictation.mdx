@@ -1,0 +1,183 @@
+---
+title: Audio dictation
+description: Transcribe audio files to text using the Whisper speech recognition model
+---
+
+MoodJourney provides offline speech-to-text transcription for audio files using OpenAI's Whisper model. This allows users to create journal entries from voice recordings.
+
+## perform_dictation_cmd
+
+Transcribes a WAV audio file to text using the Whisper model running locally on the user's device.
+
+### Function signature
+
+```rust
+async fn perform_dictation_cmd(
+    audio_file_path: String,
+    dictation_model_state: tauri::State<'_, crate::AppDictationModel>,
+) -> Result<String, String>
+```
+
+### Parameters
+
+<ParamField path="audioFilePath" type="string" required>
+  Absolute path to the WAV audio file to transcribe. The file must meet specific requirements:
+  - **Format**: WAV (16-bit PCM)
+  - **Sample rate**: 16 kHz
+  - **Channels**: Mono (1 channel)
+</ParamField>
+
+### Returns
+
+<ResponseField name="transcript" type="string">
+  The transcribed text from the audio file, trimmed of leading/trailing whitespace
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if transcription fails. Common errors include:
+  - Audio file not found
+  - Unsupported sample rate (must be 16 kHz)
+  - Unsupported channel count (must be mono)
+  - Invalid WAV format
+</ResponseField>
+
+### Usage example
+
+```javascript
+import { invoke } from "@tauri-apps/api/core";
+import { open } from '@tauri-apps/plugin-dialog';
+
+// Let user select an audio file
+const selectedPath = await open({
+  title: "Select Audio File for Dictation",
+  multiple: false,
+  filters: [{ name: 'Audio', extensions: ['wav', 'mp3', 'm4a', 'flac', 'ogg'] }]
+});
+
+if (selectedPath && typeof selectedPath === 'string') {
+  try {
+    const transcribedText = await invoke("perform_dictation_cmd", { 
+      audioFilePath: selectedPath 
+    });
+    
+    console.log("Transcription:", transcribedText);
+    // Use transcribedText in your journal entry
+  } catch (error) {
+    console.error("Transcription failed:", error);
+  }
+}
+```
+
+### Workflow in the app
+
+From `App.jsx:391-432`, the app provides a file upload flow:
+
+```javascript
+const handleFileUpload = async () => {
+  const { open: openDialog } = await import('@tauri-apps/plugin-dialog');
+  
+  const selectedPath = await openDialog({
+    title: "Select Audio File for Dictation",
+    multiple: false,
+    filters: [{ name: 'Audio', extensions: ['wav', 'mp3', 'm4a', 'flac', 'ogg'] }]
+  });
+  
+  if (selectedPath && typeof selectedPath === 'string') {
+    setStatus({ 
+      message: "Transcribing uploaded audio file, this may take a moment...", 
+      severity: "info" 
+    });
+    setIsFileDictating(true);
+    
+    const transcribedText = await invoke("perform_dictation_cmd", { 
+      audioFilePath: selectedPath 
+    });
+    
+    // Append to existing entry text
+    setEntryText(prev => 
+      prev.trim() ? `${prev.trim()} ${transcribedText.trim()}` : transcribedText.trim()
+    );
+    
+    setStatus({ 
+      message: "Uploaded audio transcribed successfully!", 
+      severity: "success" 
+    });
+  }
+};
+```
+
+### Implementation details
+
+- **Model**: Whisper `ggml-tiny.en-q5_1.bin` (quantized for efficiency)
+- **Model location**: Bundled in `src-tauri/models/dictation/`
+- **Language**: English only (`en`)
+- **Processing**: Runs in a blocking task pool to avoid blocking the async runtime
+- **Threads**: Uses 4 threads for transcription (configured in `dictation.rs:129`)
+- **Strategy**: Greedy sampling with `best_of: 1`
+
+### Audio file requirements
+
+<Warning>
+The audio file **must** meet these strict requirements or the command will fail:
+
+- **Sample rate**: Exactly 16,000 Hz (16 kHz)
+- **Channels**: Mono (1 channel)
+- **Bit depth**: 16-bit
+- **Format**: Integer PCM WAV
+
+Other formats listed in the file picker (MP3, M4A, FLAC, OGG) will fail and need external conversion.
+</Warning>
+
+Validation happens in `dictation.rs:99-116`:
+
+```rust
+if wav_spec.sample_rate != 16000 {
+    return Err(anyhow!("Unsupported audio sample rate: {}. Whisper requires 16kHz."));
+}
+if wav_spec.channels != 1 {
+    return Err(anyhow!("Unsupported audio channel count: {}. Whisper requires mono."));
+}
+```
+
+### Performance considerations
+
+- **Speed**: Transcription time depends on audio length and device CPU
+- **Async execution**: Uses `tokio::task::spawn_blocking` to prevent UI blocking
+- **Memory**: Audio is loaded entirely into memory before processing
+
+### Model path resolution
+
+The model is loaded from two possible locations (in order):
+
+1. **Bundled resources** (production): `models/dictation/ggml-tiny.en-q5_1.bin`
+2. **Development path**: `src-tauri/models/dictation/ggml-tiny.en-q5_1.bin`
+
+See `dictation.rs:7-47` for the path resolution logic.
+
+### Error handling examples
+
+```javascript
+try {
+  const text = await invoke("perform_dictation_cmd", { 
+    audioFilePath: "/path/to/invalid.wav" 
+  });
+} catch (error) {
+  if (error.includes("Unsupported audio sample rate")) {
+    console.error("Audio must be 16 kHz");
+  } else if (error.includes("Unsupported audio channel count")) {
+    console.error("Audio must be mono");
+  } else if (error.includes("Audio file not found")) {
+    console.error("File does not exist");
+  } else {
+    console.error("Transcription error:", error);
+  }
+}
+```
+
+<Note>
+While the UI file picker allows selecting MP3, M4A, FLAC, and OGG files, only WAV files meeting the strict requirements will successfully transcribe. Future versions may include automatic conversion.
+</Note>
+
+### Alternative: Web Speech API
+
+For real-time dictation, the app also uses the browser's Web Speech API (see `App.jsx:288-389`), which doesn't require pre-recorded files but does require an internet connection.

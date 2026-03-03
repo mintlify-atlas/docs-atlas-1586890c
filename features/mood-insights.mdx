@@ -1,0 +1,247 @@
+---
+title: Mood trend visualization and calendar
+description: Track your emotional patterns over time with interactive visualizations and mood calendars
+---
+
+The Insights page provides powerful visualization tools to help you understand your emotional patterns and track your mental wellbeing over time.
+
+## Accessing Insights
+
+Click the "Insights" option in the sidebar navigation to open the Insights page. You'll see a two-panel layout:
+
+- **Left panel** - Entry list or mood calendar
+- **Right panel** - Emotion summary statistics and selected entry preview
+
+## View modes
+
+Insights offers two complementary ways to explore your journal data:
+
+<Tabs>
+  <Tab title="Informative view">
+    Displays your entries in a list format with emotion badges, perfect for browsing content chronologically and reading entry previews.
+  </Tab>
+  
+  <Tab title="Visual view">
+    Shows a color-coded calendar where each day is represented by a colored square indicating that day's detected emotion.
+  </Tab>
+</Tabs>
+
+Switch between views using the "Informative" and "Visual" buttons at the top of the page.
+
+## Informative view
+
+### Entry cards
+
+Each entry is displayed as a card showing:
+
+- **Date** - When the entry was written
+- **Emotion badge** - Color-coded emotion label
+- **Content preview** - First few lines of your entry
+
+```javascript
+// From InsightsPage.jsx:74-78
+const getEntryPreview = (content) => {
+    const main = getMainContent(content);
+    const lines = main.split('\n');
+    return lines.slice(0, 5).join('\n') + (lines.length > 5 ? '...' : '');
+};
+```
+
+### Emotion-coded borders
+
+Each card features a colored left border corresponding to the detected emotion, making it easy to scan your emotional journey at a glance.
+
+<Info>
+Click any entry card to view its full content in the preview panel on the right.
+</Info>
+
+## Visual view (Mood calendar)
+
+### Calendar granularity
+
+The calendar can display your data in two ways:
+
+<Tabs>
+  <Tab title="Month view">
+    Shows a traditional monthly calendar for the selected month and year. Each date is a colored square representing that day's emotion.
+  </Tab>
+  
+  <Tab title="Year view">
+    Displays all 12 months of the selected year in a scrollable layout, perfect for seeing long-term patterns.
+  </Tab>
+</Tabs>
+
+Toggle between month and year view using the switch at the top of the calendar.
+
+### Calendar navigation
+
+<Steps>
+  <Step title="Select month (month view only)">
+    Use the month dropdown to jump to any month in the selected year.
+  </Step>
+  
+  <Step title="Select year">
+    Use the year dropdown to view any year that contains journal entries (plus 3 years before and after).
+  </Step>
+  
+  <Step title="Explore dates">
+    Hover over any colored square to see the date and emotion in a tooltip.
+  </Step>
+  
+  <Step title="View entry">
+    Click any square with a journal entry to load it in the preview panel.
+  </Step>
+</Steps>
+
+### Color coding
+
+Each emotion is represented by a distinct color:
+
+- **Joy** - Bright yellow/gold
+- **Sadness** - Blue
+- **Anger** - Red
+- **Fear** - Purple
+- **Disgust** - Green
+- **Surprise** - Orange
+- **Neutral** - Gray
+- **No entry** - Light background with dotted border
+
+<Note>
+Days without journal entries appear with a semi-transparent background and cannot be clicked.
+</Note>
+
+## Emotion summary statistics
+
+The right panel displays a breakdown of emotions across all your entries:
+
+```javascript
+// From InsightsPage.jsx:62-72
+const emotionCounts = useMemo(() => {
+    const counts = { sadness: 0, angry: 0, neutral: 0, joy: 0, disgust: 0, fear: 0, surprise: 0, unknown: 0 };
+    entries.forEach(entry => {
+        const extractedEmotion = extractEmotionFromContent(entry.content)?.toLowerCase();
+        if (targetKey && counts.hasOwnProperty(targetKey)) counts[targetKey]++;
+        else counts.unknown++;
+    });
+    return counts;
+}, [entries]);
+```
+
+### Summary display
+
+Each emotion is shown with:
+- Emotion name
+- Count of entries with that emotion
+- Color-coded background matching the calendar
+
+This gives you quick insight into your overall emotional distribution.
+
+## Entry preview panel
+
+When you click an entry (from either view mode), the preview panel shows:
+
+- **Entry date** - Formatted date header
+- **Emotion badge** - Color-coded emotion label
+- **Content preview** - First five lines of the entry
+- **View Entry button** - Opens the full entry in the main journal view
+
+<Steps>
+  <Step title="Click to preview">
+    Click any entry card or calendar square with a journal entry.
+  </Step>
+  
+  <Step title="Review content">
+    Read the date, emotion, and content preview in the right panel.
+  </Step>
+  
+  <Step title="View full entry (optional)">
+    Click "View Entry" to open the complete entry with all suggestions and the ability to edit.
+  </Step>
+  
+  <Step title="Close preview">
+    Click the X icon to clear the preview and select another entry.
+  </Step>
+</Steps>
+
+## Insights for mental health tracking
+
+### Pattern recognition
+
+Use the calendar view to identify:
+
+- **Recurring patterns** - Do you experience certain emotions on specific days of the week?
+- **Seasonal trends** - Are there times of year when you feel consistently better or worse?
+- **Clusters** - Are difficult periods isolated or do they come in waves?
+- **Progress** - Can you see improvement over weeks or months?
+
+<Tip>
+Switch to year view to spot long-term trends that might not be visible in month view.
+</Tip>
+
+### Using the data
+
+The emotion statistics help you:
+
+1. **Understand your baseline** - What emotions do you experience most frequently?
+2. **Track changes** - Are you becoming more positive over time?
+3. **Identify triggers** - What external factors correlate with emotional shifts?
+4. **Celebrate progress** - Recognize periods of consistent positive emotions
+
+<Warning>
+While Insights provides valuable data for self-reflection, it should not replace professional mental health support. If you're struggling, please consult with a qualified healthcare provider.
+</Warning>
+
+## Interactive features
+
+### Hover tooltips
+
+Hover over any calendar date to see:
+- The formatted date (e.g., "January 15, 2024")
+- The detected emotion for that day
+
+### Click interactions
+
+- **Entry cards** - Opens preview in right panel
+- **Calendar squares** (with entries) - Opens preview in right panel
+- **View Entry button** - Navigates to full entry view
+- **Close button** - Clears the current preview
+
+### Responsive design
+
+The Insights page adapts to different screen sizes:
+
+- **Desktop** - Side-by-side panels for easy comparison
+- **Mobile/tablet** - Stacked panels for optimal viewing
+
+## Performance optimization
+
+The Insights page uses React performance optimizations:
+
+```javascript
+// From InsightsPage.jsx:53-57
+const entriesByDate = useMemo(() => {
+    const map = new Map();
+    entries.forEach(entry => map.set(entry.date, entry));
+    return map;
+}, [entries]);
+```
+
+This ensures smooth performance even with hundreds of journal entries.
+
+## Best practices
+
+<Accordion title="Regular review">
+  Check your Insights weekly or monthly to stay aware of your emotional patterns.
+</Accordion>
+
+<Accordion title="Look for context">
+  When you notice a pattern, think about external factors (stress, sleep, exercise, relationships) that might be influencing your mood.
+</Accordion>
+
+<Accordion title="Celebrate wins">
+  Use the data to recognize periods where you've maintained positive emotions or worked through challenges.
+</Accordion>
+
+<Accordion title="Share with professionals">
+  The calendar view can be a helpful visual aid when discussing your mental health with therapists or counselors.
+</Accordion>

@@ -1,0 +1,84 @@
+---
+title: Introduction
+description: A modern digital journaling application with AI-powered sentiment analysis and mood trend visualization
+---
+
+# Welcome to MoodJourney
+
+MoodJourney is a modern, digital and user-friendly journaling application that promotes self-reflection through features such as sentiment analysis and mood trend visualization. Built with Tauri (Rust backend + React frontend), it provides a secure and accessible platform for creating and storing journal entries.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card
+    title="AI-powered sentiment analysis"
+    icon="brain"
+    href="/quickstart#creating-your-first-entry"
+  >
+    Automatically analyze the emotional tone of your journal entries using advanced machine learning models
+  </Card>
+  
+  <Card
+    title="Mood trend visualization"
+    icon="chart-line"
+  >
+    Visualize your emotional patterns over time with a dynamic calendar that showcases your emotions
+  </Card>
+  
+  <Card
+    title="AI assistant with context"
+    icon="comments"
+  >
+    Chat with an AI assistant powered by Gemini 2.0 Flash that has context from your journal entries
+  </Card>
+  
+  <Card
+    title="Voice dictation"
+    icon="microphone"
+  >
+    Transcribe audio into text using WhisperAI to make journaling faster and more accessible
+  </Card>
+</CardGroup>
+
+## What you'll build
+
+With MoodJourney, you can:
+
+- Create and store secure journal entries with optional password protection
+- Analyze your emotions using DistilRoBERTa sentiment analysis model
+- Visualize mood trends through an interactive calendar interface
+- Get AI-generated suggestions and feedback on your journal entries
+- Use voice dictation to quickly capture your thoughts
+- Chat with an AI assistant that understands your journaling context
+
+## Technology stack
+
+MoodJourney is built with modern technologies:
+
+- **Frontend**: React 18 with Vite, Material-UI components, and Recharts for visualizations
+- **Backend**: Rust with Tauri 2.5, providing native performance and security
+- **Database**: SQLite with rusqlite for local data storage
+- **AI Models**: 
+  - WhisperAI for speech-to-text dictation
+  - DistilRoBERTa for emotion classification
+  - Google Gemini 2.0 Flash for AI assistance
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install MoodJourney and set up all prerequisites
+  </Card>
+  
+  <Card
+    title="Quick start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get started with MoodJourney and create your first journal entry
+  </Card>
+</CardGroup>
