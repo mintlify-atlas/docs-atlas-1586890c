@@ -1,0 +1,101 @@
+{
+  "projectType": "saas",
+  "projectName": "MoodJourney",
+  "projectDescription": "A modern digital journaling application with AI-powered sentiment analysis and mood trend visualization.",
+  "theme": "almond",
+  "primaryColor": "#7C3AED",
+  "lightColor": "#A78BFA",
+  "darkColor": "#5B21B6",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/journaling",
+              "features/sentiment-analysis",
+              "features/mood-insights",
+              "features/ai-assistant",
+              "features/dictation",
+              "features/security"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/settings",
+              "configuration/themes",
+              "configuration/api-keys"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Technical Reference",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "technical/architecture",
+              "technical/database",
+              "technical/models"
+            ]
+          },
+          {
+            "group": "API Commands",
+            "pages": [
+              "api/entries",
+              "api/emotion",
+              "api/dictation",
+              "api/suggestion",
+              "api/password"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/testing",
+              "development/contributing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Journal entry creation and management",
+    "AI sentiment analysis with DistilRoBERTa",
+    "Mood trend visualization and calendar insights",
+    "AI-powered suggestions via Gemini API",
+    "Chat assistant with journal context",
+    "Audio dictation with Web Speech API and WhisperAI",
+    "PIN-based security and encryption",
+    "Image uploads for entries",
+    "Multiple themes (light/dark/girlboss)"
+  ],
+  "publicApiSurface": [
+    "create_entry(title, content, password, image)",
+    "read_entries()",
+    "get_entry(date)",
+    "update_entry(date, newTitle, newContent, newPassword, newImage)",
+    "delete_entry(date)",
+    "classify_emotion(text)",
+    "perform_dictation_cmd(audioFilePath)",
+    "generate_suggestion_cmd(entryTitle, entryContent)",
+    "chat_assistant_cmd(conversationHistory)",
+    "is_pin_set_cmd()",
+    "check_password_attempt_cmd(passwordStr)",
+    "set_new_password_cmd(passwordStr)",
+    "upload_image_file(fileDataBase64, originalFileName)"
+  ]
+}
